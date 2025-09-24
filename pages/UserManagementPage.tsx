@@ -1,0 +1,184 @@
+import React, { useState, useMemo } from 'react';
+import { User, Shop } from '../types';
+import UserModal from '../components/UserModal';
+import ConfirmationModal from '../components/ConfirmationModal';
+
+interface UserManagementPageProps {
+    users: User[];
+    shops: Shop[];
+    onAddUser: (user: Omit<User, 'id' | 'role' | 'isActive'>) => void;
+    onUpdateUser: (user: User) => void;
+    onToggleUserStatus: (userId: string) => void;
+    onDeleteUser: (userId: string) => void;
+}
+
+const PlusIcon = () => <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>;
+const SearchIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>;
+const EditIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>;
+const DeleteIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>;
+const ToggleOnIcon = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7"></path></svg>;
+const ToggleOffIcon = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>;
+
+const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, onAddUser, onUpdateUser, onToggleUserStatus, onDeleteUser }) => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [deletingUser, setDeletingUser] = useState<User | null>(null);
+    const [togglingUser, setTogglingUser] = useState<User | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const handleOpenModal = (user: User | null = null) => {
+        setEditingUser(user);
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingUser(null);
+    };
+
+    const handleSaveUser = (userData: Omit<User, 'id' | 'role' | 'isActive'> | User) => {
+        if ('id' in userData) {
+            onUpdateUser(userData as User);
+        } else {
+            onAddUser(userData);
+        }
+        handleCloseModal();
+    };
+    
+    const handleConfirmDelete = () => {
+        if (deletingUser) {
+            onDeleteUser(deletingUser.id);
+            setDeletingUser(null);
+        }
+    };
+    
+    const handleConfirmToggle = () => {
+        if (togglingUser) {
+            onToggleUserStatus(togglingUser.id);
+            setTogglingUser(null);
+        }
+    };
+
+    const filteredUsers = useMemo(() => {
+        const query = searchQuery.toLowerCase().trim();
+        if (!query) return users;
+        return users.filter(u => 
+            u.name.toLowerCase().includes(query) || 
+            u.email.toLowerCase().includes(query)
+        );
+    }, [users, searchQuery]);
+
+    const getShopName = (shopId?: string) => {
+        return shops.find(s => s.id === shopId)?.name || <span className="text-gray-500">غير مرتبط</span>;
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center gap-4 flex-wrap">
+                <h1 className="text-3xl font-bold">إدارة المستخدمين</h1>
+                <button 
+                    onClick={() => handleOpenModal()}
+                    className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center shadow-lg transform hover:scale-105"
+                >
+                    <PlusIcon />
+                    <span>إضافة مستخدم جديد</span>
+                </button>
+            </div>
+
+            <div className="relative">
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <SearchIcon />
+                </div>
+                <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="ابحث بالاسم أو البريد الإلكتروني..."
+                    className="w-full bg-surface border border-gray-600 rounded-lg p-3 pr-10 text-text-primary focus:ring-primary focus:border-primary placeholder-gray-400"
+                />
+            </div>
+
+            <div className="bg-surface p-6 rounded-lg shadow-lg">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-right">
+                        <thead>
+                             <tr className="border-b border-gray-700 text-text-secondary">
+                                <th className="p-3">الاسم الكامل</th>
+                                <th className="p-3">البريد الإلكتروني</th>
+                                <th className="p-3">المتجر المرتبط</th>
+                                <th className="p-3">الحالة</th>
+                                <th className="p-3 text-left">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredUsers.map((user, index) => (
+                                <tr key={user.id} className={`border-b border-gray-700 transition-colors duration-200 hover:bg-background/50 ${index % 2 === 0 ? 'bg-background/20' : ''}`}>
+                                    <td className="p-3 font-medium text-text-primary">{user.name}</td>
+                                    <td className="p-3 text-text-secondary text-left">{user.email}</td>
+                                    <td className="p-3 text-text-secondary">{getShopName(user.shopId)}</td>
+                                    <td className="p-3">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                            {user.isActive ? 'نشط' : 'غير نشط'}
+                                        </span>
+                                    </td>
+                                    <td className="p-3 text-left">
+                                        <button onClick={() => handleOpenModal(user)} className="text-accent hover:text-blue-400 p-2 transition-colors duration-200" aria-label={`تعديل ${user.name}`}>
+                                            <EditIcon />
+                                        </button>
+                                        <button onClick={() => setTogglingUser(user)} className={`p-2 transition-colors duration-200 ${user.isActive ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`} aria-label={`${user.isActive ? 'إلغاء تفعيل' : 'تفعيل'} ${user.name}`}>
+                                            {user.isActive ? <ToggleOffIcon /> : <ToggleOnIcon />}
+                                        </button>
+                                        <button onClick={() => setDeletingUser(user)} className="text-red-500 hover:text-red-400 p-2 transition-colors duration-200" aria-label={`حذف ${user.name}`}>
+                                            <DeleteIcon />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {filteredUsers.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="text-center p-8 text-text-secondary">
+                                        لا يوجد مستخدمون يطابقون بحثك أو لم يتم إضافة أي مستخدمين بعد.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <UserModal 
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+                onSave={handleSaveUser}
+                userToEdit={editingUser}
+                allUsers={users}
+                shops={shops.filter(s => s.isActive)}
+            />
+
+            {deletingUser && (
+                 <ConfirmationModal 
+                    isOpen={!!deletingUser} 
+                    onClose={() => setDeletingUser(null)}
+                    onConfirm={handleConfirmDelete}
+                    title="تأكيد الحذف"
+                    message={`هل أنت متأكد من حذف المستخدم "${deletingUser.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+                    confirmText="حذف"
+                    isDestructive={true}
+                />
+            )}
+             {togglingUser && (
+                <ConfirmationModal 
+                    isOpen={!!togglingUser} 
+                    onClose={() => setTogglingUser(null)}
+                    onConfirm={handleConfirmToggle}
+                    title={togglingUser.isActive ? 'تأكيد إلغاء التفعيل' : 'تأكيد التفعيل'}
+                    message={`هل أنت متأكد من ${togglingUser.isActive ? 'إلغاء تفعيل' : 'تفعيل'} حساب "${togglingUser.name}"؟`}
+                    confirmText={togglingUser.isActive ? 'إلغاء التفعيل' : 'تفعيل'}
+                    isDestructive={togglingUser.isActive}
+                />
+            )}
+        </div>
+    );
+};
+
+export default UserManagementPage;
