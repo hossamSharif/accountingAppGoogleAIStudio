@@ -12,6 +12,7 @@ import ShopLogsPage from './pages/ShopLogsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import StatementPage from './pages/StatementPage';
 import UserAnalyticsPage from './pages/UserAnalyticsPage';
+import TransactionsPage from './pages/TransactionsPage';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from 'firebase/auth';
 import {
@@ -29,6 +30,10 @@ import {
     Timestamp,
     orderBy
 } from 'firebase/firestore';
+import { NotificationService } from './services/notificationService';
+import { LoggingService } from './services/loggingService';
+import { usePushNotifications } from './hooks/usePushNotifications';
+import NotificationPermissionPrompt from './components/NotificationPermissionPrompt';
 
 const App: React.FC = () => {
     // --- STATE MANAGEMENT ---
@@ -50,6 +55,10 @@ const App: React.FC = () => {
     
     const unsubscribeCallbacks = useRef<(() => void)[]>([]);
 
+    // Push Notifications
+    const pushNotifications = usePushNotifications(currentUser);
+    const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+
     // --- COMPUTED STATE ---
     // Notifications now arrive pre-sorted from Firestore
     const userNotifications = useMemo(() => notifications, [notifications]);
@@ -60,7 +69,7 @@ const App: React.FC = () => {
             // Clean up old listeners before setting up new ones
             unsubscribeCallbacks.current.forEach(unsub => unsub());
             unsubscribeCallbacks.current = [];
-            
+
             if (firebaseUser) {
                 try {
                     const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -68,7 +77,7 @@ const App: React.FC = () => {
 
                     if (userDocSnap.exists()) {
                         const appUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                        
+
                         if (appUser.isActive) {
                             setCurrentUser(appUser);
                             setupFirestoreListeners(appUser);
@@ -113,20 +122,55 @@ const App: React.FC = () => {
 
         const q = query(
             collection(db, 'transactions'),
-            where("shopId", "==", activeShop.id),
-            where("date", ">=", startOfDay.toISOString()),
-            where("date", "<=", endOfDay.toISOString())
+            where("shopId", "==", activeShop.id)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Transaction[];
-            setDailyTransactions(data);
+            // Filter by date manually to avoid index requirement
+            const filteredData = data.filter(transaction => {
+                const transactionDate = new Date(transaction.date);
+                return transactionDate >= startOfDay && transactionDate <= endOfDay;
+            });
+            setDailyTransactions(filteredData);
+        }, (error) => {
+            console.error("Daily transactions listener error:", error);
+            setDailyTransactions([]); // Set empty array on error to prevent crashes
         });
 
         // Return cleanup function
         return () => unsubscribe();
 
     }, [activeShop, selectedDate]);
+
+    // Show notification prompt for admin users without push notification permission
+    useEffect(() => {
+        console.log('🔔 Notification Prompt Check:');
+        console.log('  - Current User:', currentUser?.name || 'None');
+        console.log('  - Is Admin:', currentUser?.role === 'admin');
+        console.log('  - Push Supported:', pushNotifications.isSupported);
+        console.log('  - Permission:', pushNotifications.permission);
+        console.log('  - Has FCM Token:', !!currentUser?.fcmToken);
+
+        if (
+            currentUser &&
+            currentUser.role === 'admin' &&
+            pushNotifications.isSupported &&
+            pushNotifications.permission === 'default' &&
+            !currentUser.fcmToken
+        ) {
+            console.log('✅ All conditions met! Showing prompt in 3 seconds...');
+            // Show prompt after 3 seconds to give user time to settle in
+            const timer = setTimeout(() => {
+                console.log('🎯 Displaying notification permission prompt NOW');
+                setShowNotificationPrompt(true);
+            }, 3000);
+
+            return () => clearTimeout(timer);
+        } else {
+            console.log('❌ Conditions not met for showing notification prompt');
+        }
+    }, [currentUser, pushNotifications.isSupported, pushNotifications.permission]);
     
     const setupFirestoreListeners = (user: User) => {
         const unsubs: (() => void)[] = [];
@@ -134,13 +178,19 @@ const App: React.FC = () => {
         // Base query constraints for user vs admin
         const shopConstraint = user.role === 'user' && user.shopId ? [where("shopId", "==", user.shopId)] : [];
 
-        // Generic listener function
+        // Generic listener function with error handling
         const createListener = <T,>(collectionName: string, setter: React.Dispatch<React.SetStateAction<T[]>>, constraints: any[] = []) => {
             const q = query(collection(db, collectionName), ...constraints);
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
-                setter(data);
-            });
+            const unsubscribe = onSnapshot(q,
+                (snapshot) => {
+                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
+                    setter(data);
+                },
+                (error) => {
+                    console.error(`Error in ${collectionName} listener:`, error);
+                    setter([]); // Set empty array on error to prevent crashes
+                }
+            );
             unsubs.push(unsubscribe);
         };
 
@@ -149,7 +199,13 @@ const App: React.FC = () => {
             createListener<User>('users', setUsers);
         } else {
              const shopsQuery = user.shopId ? query(collection(db, 'shops'), where('__name__', '==', user.shopId)) : query(collection(db, 'shops'));
-             unsubs.push(onSnapshot(shopsQuery, (snapshot) => setShops(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shop)))));
+             unsubs.push(onSnapshot(shopsQuery,
+                (snapshot) => setShops(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shop))),
+                (error) => {
+                    console.error("Shops listener error:", error);
+                    setShops([]); // Set empty array on error to prevent crashes
+                }
+             ));
         }
 
         // Fetch all transactions for analytics and statements, but not for the dashboard's daily view
@@ -162,15 +218,28 @@ const App: React.FC = () => {
         const logConstraints = user.role === 'admin' ? [] : shopConstraint;
         createListener<Log>('logs', setLogs, logConstraints);
 
-        // Notifications listener: Specific to user AND now sorted by the database
+        // Notifications listener: Specific to user (removed orderBy to avoid index requirement)
         const notificationsQuery = query(
-            collection(db, 'notifications'), 
-            where("userId", "==", user.id), 
-            orderBy("timestamp", "desc")
+            collection(db, 'notifications'),
+            where("userId", "==", user.id)
         );
         unsubs.push(onSnapshot(notificationsQuery, (snapshot) => {
-             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Notification[];
-             setNotifications(data);
+             const data = snapshot.docs.map(doc => {
+                 const docData = doc.data();
+                 // Convert Firestore Timestamp to ISO string if needed
+                 const timestamp = docData.timestamp?.toDate ? docData.timestamp.toDate().toISOString() : docData.timestamp;
+                 return {
+                     id: doc.id,
+                     ...docData,
+                     timestamp: timestamp || new Date().toISOString() // Fallback to current date if timestamp is missing
+                 };
+             }) as Notification[];
+             // Sort manually to avoid index requirement
+             const sortedData = data.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+             setNotifications(sortedData);
+        }, (error) => {
+            console.error("Notifications listener error:", error);
+            setNotifications([]); // Set empty array on error to prevent crashes
         }));
 
         unsubscribeCallbacks.current = unsubs;
@@ -191,34 +260,24 @@ const App: React.FC = () => {
         }
     }, [currentUser, shops]);
 
+    // Expose db for migration scripts (development only)
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            (window as any).db = db;
+        }
+    }, []);
+
     // --- HANDLERS ---
     const handleAddLog = async (type: LogType, message: string, user: User | null = currentUser) => {
         if (!user) return;
-        const newLog = {
-            userId: user.id,
-            shopId: activeShop?.id || user.shopId || null,
-            type,
-            timestamp: Timestamp.now().toDate().toISOString(),
-            message,
-        };
-        await addDoc(collection(db, 'logs'), newLog);
 
-        if (user.role !== 'admin') {
-            const adminUsers = await getDoc(doc(db, 'users', 'admin')); // Assuming single admin for simplicity
-            const admins = users.filter(u => u.role === 'admin');
-            for (const admin of admins) {
-                 const newNotification = {
-                    userId: admin.id,
-                    originatingUserId: user.id,
-                    shopId: activeShop?.id,
-                    logType: type,
-                    message: `User "${user.name}" in shop "${activeShop?.name}" performed action: ${message}`,
-                    isRead: false,
-                    timestamp: new Date().toISOString()
-                };
-                await addDoc(collection(db, 'notifications'), newNotification);
-            }
-        }
+        // Use LoggingService which automatically handles admin notifications
+        await LoggingService.logAction(
+            user,
+            type,
+            message,
+            activeShop?.id || user.shopId || null
+        );
     };
     
     const handleLogin = async (email: string, password: string): Promise<true | string> => {
@@ -245,22 +304,67 @@ const App: React.FC = () => {
     const handleSelectShop = (shop: Shop | null) => { setActiveShop(shop); setPage(Page.DASHBOARD); }
     
     const handleAddTransaction = async (transaction: Omit<Transaction, 'id' | 'shopId' | 'date'>) => {
-        if (!activeShop) return;
+        if (!activeShop || !currentUser) return;
         const newTransaction = { ...transaction, shopId: activeShop.id, date: selectedDate.toISOString() };
-        await addDoc(collection(db, 'transactions'), newTransaction);
-        await handleAddLog(LogType.ADD_ENTRY, `Added ${transaction.type} transaction for ${transaction.totalAmount}`);
+        const docRef = await addDoc(collection(db, 'transactions'), newTransaction);
+
+        // Log and notify admins with detailed information
+        const message = `Added ${transaction.type} transaction for ${transaction.totalAmount} SD - ${transaction.description || 'No description'}`;
+        await handleAddLog(LogType.ADD_ENTRY, message);
+
+        // Send real-time notification to admins
+        if (currentUser.role !== 'admin') {
+            await NotificationService.notifyAdminsOfSystemEvent(
+                `معاملة جديدة في ${activeShop.name}: (${transaction.type}) - ${transaction.totalAmount} ج.س`,
+                LogType.ADD_ENTRY,
+                activeShop.id
+            );
+        }
     };
-    
+
     const handleUpdateTransaction = async (updatedTransaction: Transaction) => {
+        if (!activeShop || !currentUser) return;
         const { id, ...data } = updatedTransaction;
+
+        // Get original transaction for comparison
+        const originalTx = transactions.find(t => t.id === id);
         await updateDoc(doc(db, 'transactions', id), data);
-        await handleAddLog(LogType.EDIT_ENTRY, `Updated transaction ID ${id}`);
+
+        // Log with details about what changed
+        const message = originalTx
+            ? `Updated ${originalTx.type} transaction from ${originalTx.totalAmount} to ${updatedTransaction.totalAmount} SD`
+            : `Updated transaction ID ${id}`;
+        await handleAddLog(LogType.EDIT_ENTRY, message);
+
+        // Send real-time notification to admins
+        if (currentUser.role !== 'admin') {
+            const txType = updatedTransaction.type || (originalTx ? originalTx.type : '');
+            await NotificationService.notifyAdminsOfSystemEvent(
+                `تعديل معاملة في ${activeShop.name}: (${txType}) - ${updatedTransaction.totalAmount} ج.س`,
+                LogType.EDIT_ENTRY,
+                activeShop.id
+            );
+        }
     };
-    
+
     const handleDeleteTransaction = async (transactionId: string) => {
+        if (!activeShop || !currentUser) return;
         const tx = transactions.find(t => t.id === transactionId);
         await deleteDoc(doc(db, 'transactions', transactionId));
-        if (tx) await handleAddLog(LogType.DELETE_ENTRY, `Deleted transaction ${tx.description}`);
+
+        if (tx) {
+            const message = `Deleted ${tx.type} transaction: ${tx.description} - ${tx.totalAmount} SD`;
+            await handleAddLog(LogType.DELETE_ENTRY, message);
+
+            // Send real-time notification to admins
+            if (currentUser.role !== 'admin') {
+                await NotificationService.notifyAdminsOfSystemEvent(
+                    `حذف معاملة في ${activeShop.name}: (${tx.type}) - ${tx.totalAmount} ج.س`,
+                    LogType.DELETE_ENTRY,
+                    activeShop.id
+                );
+            }
+        }
     };
     
     const handleAddAccount = async (accountData: Omit<Account, 'id' | 'shopId' | 'isActive'>, forShopId?: string): Promise<Account | null> => {
@@ -353,11 +457,69 @@ const App: React.FC = () => {
         await batch.commit();
     };
 
+    const handleDeleteNotifications = async (notificationIds: string[]) => {
+        if (!currentUser || currentUser.role !== 'admin') {
+            console.error('Only admins can delete notifications');
+            return;
+        }
+
+        try {
+            const batch = writeBatch(db);
+            notificationIds.forEach(id => {
+                batch.delete(doc(db, 'notifications', id));
+            });
+            await batch.commit();
+
+            await LoggingService.logAction(
+                currentUser,
+                LogType.USER_ACTION,
+                `Deleted ${notificationIds.length} notification(s)`,
+                activeShop?.id
+            );
+        } catch (error) {
+            console.error('Error deleting notifications:', error);
+            throw error;
+        }
+    };
+
+    const handleDeleteLogs = async (logIds: string[]) => {
+        if (!currentUser || currentUser.role !== 'admin') {
+            console.error('Only admins can delete logs');
+            return;
+        }
+
+        try {
+            const batch = writeBatch(db);
+            logIds.forEach(id => {
+                batch.delete(doc(db, 'logs', id));
+            });
+            await batch.commit();
+
+            await LoggingService.logAction(
+                currentUser,
+                LogType.USER_ACTION,
+                `Deleted ${logIds.length} log record(s)`,
+                activeShop?.id
+            );
+        } catch (error) {
+            console.error('Error deleting logs:', error);
+            throw error;
+        }
+    };
+
+
     // --- RENDER LOGIC ---
     if (isLoading) {
-        return <div className="min-h-screen bg-background flex justify-center items-center"><div className="text-white text-xl animate-pulse">جاري التحقق من الهوية...</div></div>;
+        return (
+            <div className="min-h-screen bg-background flex justify-center items-center">
+                <div className="text-white text-xl animate-pulse">جاري التحقق من الهوية...</div>
+            </div>
+        );
     }
-    if (!currentUser) { return <LoginPage onLogin={handleLogin} />; }
+
+    if (!currentUser) {
+        return <LoginPage onLogin={handleLogin} />;
+    }
     if (!activeShop && currentUser.role === 'user') {
          return <div className="min-h-screen bg-background flex flex-col justify-center items-center text-text-primary">
             <h1 className="text-2xl font-bold">الحساب أو المتجر غير نشط</h1>
@@ -376,32 +538,52 @@ const App: React.FC = () => {
         switch (page) {
             case Page.DASHBOARD:
                 // Pass the new dailyTransactions state to the Dashboard
-                return <Dashboard transactions={dailyTransactions} accounts={shopData.accounts} onAddTransaction={handleAddTransaction} onUpdateTransaction={handleUpdateTransaction} onDeleteTransaction={handleDeleteTransaction} openFinancialYear={shopData.financialYears.find(fy => fy.status === 'open')} onAddAccount={handleAddAccount} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />;
+                // Also pass ALL transactions for accurate balance calculation
+                return <Dashboard transactions={dailyTransactions} allTransactions={shopData.transactions} accounts={shopData.accounts} onAddTransaction={handleAddTransaction} onUpdateTransaction={handleUpdateTransaction} onDeleteTransaction={handleDeleteTransaction} openFinancialYear={shopData.financialYears.find(fy => fy.status === 'open')} onAddAccount={handleAddAccount} selectedDate={selectedDate} setSelectedDate={setSelectedDate} activeShop={activeShop} onAddLog={handleAddLog} user={currentUser} shops={shops} onSelectShop={handleSelectShop} />;
             case Page.ACCOUNTS:
-                return <AccountsPage accounts={shopData.accounts} transactions={shopData.transactions} onAddAccount={handleAddAccount} onUpdateAccount={handleUpdateAccount} onToggleAccountStatus={handleToggleAccountStatus} onDeleteAccount={handleDeleteAccount} />;
+                return <AccountsPage />;
             case Page.STATEMENT:
                 return <StatementPage accounts={shopData.accounts} transactions={shopData.transactions} activeShop={activeShop} />;
+            case Page.TRANSACTIONS:
+                return <TransactionsPage user={currentUser} activeShop={activeShop} shops={shops} accounts={accounts} onNavigate={setPage} onAddLog={handleAddLog} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} financialYears={financialYears} onAddAccount={handleAddAccount} />;
             case Page.SETTINGS:
-                return <SettingsPage activeShop={activeShop} shops={shops} onAddShop={handleAddShop} onUpdateShop={handleUpdateShop} onToggleShopStatus={handleToggleShopStatus} users={users.filter(u => u.role === 'user')} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onToggleUserStatus={handleToggleUserStatus} onDeleteUser={handleDeleteUser} financialYears={financialYears} onAddFinancialYear={handleAddFinancialYear} onCloseFinancialYear={handleCloseFinancialYear} accounts={accounts} transactions={transactions} onAddAccount={handleAddAccount} onUpdateAccount={handleUpdateAccount} onToggleAccountStatus={handleToggleAccountStatus} onDeleteAccount={handleDeleteAccount} />;
+                return <SettingsPage currentUser={currentUser} activeShop={activeShop} shops={shops} onAddShop={handleAddShop} onUpdateShop={handleUpdateShop} onToggleShopStatus={handleToggleShopStatus} users={users.filter(u => u.role === 'user')} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onToggleUserStatus={handleToggleUserStatus} onDeleteUser={handleDeleteUser} financialYears={financialYears} onAddFinancialYear={handleAddFinancialYear} onCloseFinancialYear={handleCloseFinancialYear} accounts={accounts} transactions={transactions} onAddAccount={handleAddAccount} onUpdateAccount={handleUpdateAccount} onToggleAccountStatus={handleToggleAccountStatus} onDeleteAccount={handleDeleteAccount} />;
             case Page.PROFILE:
                 return <ProfilePage currentUser={currentUser} onUpdateUser={handleUpdateUser} allUsers={users} />;
             case Page.SHOP_LOGS:
-                 return <ShopLogsPage logs={logs.filter(l => l.shopId === activeShop?.id)} users={users} activeShop={activeShop} />;
+                 return <ShopLogsPage logs={logs} users={users} activeShop={activeShop} shops={shops} currentUser={currentUser} onDeleteLogs={handleDeleteLogs} />;
             case Page.NOTIFICATIONS:
-                return <NotificationsPage notifications={userNotifications} onMarkAllRead={handleMarkNotificationsRead} users={users} shops={shops} />;
+                return <NotificationsPage notifications={userNotifications} onMarkAllRead={handleMarkNotificationsRead} onDeleteNotifications={handleDeleteNotifications} users={users} shops={shops} currentUser={currentUser} />;
             case Page.ANALYTICS:
                 if (currentUser.role === 'admin') {
                     return <AnalyticsPage shops={shops} accounts={accounts} transactions={transactions} financialYears={financialYears} />;
                 }
-                return <UserAnalyticsPage transactions={shopData.transactions} accounts={shopData.accounts} />;
+                return <UserAnalyticsPage transactions={shopData.transactions} accounts={shopData.accounts} financialYears={shopData.financialYears} />;
             default: return <h1>Page not found</h1>;
         }
     };
 
     return (
-        <Layout activeShop={activeShop} currentUser={currentUser} page={page} setPage={setPage} onLogout={handleLogout} shops={shops} onSelectShop={handleSelectShop} notifications={userNotifications} onAddLog={handleAddLog} onMarkNotificationsRead={handleMarkNotificationsRead} dailyTransactions={dailyTransactions} accounts={accounts.filter(a => a.shopId === activeShop?.id)} selectedDate={selectedDate}>
-            {renderPage()}
-        </Layout>
+        <>
+            <Layout activeShop={activeShop} currentUser={currentUser} page={page} setPage={setPage} onLogout={handleLogout} shops={shops} onSelectShop={handleSelectShop} notifications={userNotifications} onAddLog={handleAddLog} onMarkNotificationsRead={handleMarkNotificationsRead}>
+                {renderPage()}
+            </Layout>
+
+            {/* Push Notification Permission Prompt */}
+            {showNotificationPrompt && pushNotifications.isSupported && (
+                <NotificationPermissionPrompt
+                    onRequestPermission={async () => {
+                        const token = await pushNotifications.requestPermission();
+                        if (token) {
+                            setShowNotificationPrompt(false);
+                        }
+                        return token;
+                    }}
+                    onDismiss={() => setShowNotificationPrompt(false)}
+                    isLoading={pushNotifications.isLoading}
+                />
+            )}
+        </>
     );
 };
 

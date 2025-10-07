@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete All Shops - Accounting App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: #856404;
+        }
+
+        .warning h2 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #d32f2f;
+        }
+
+        .warning ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .auth-section {
+            margin-bottom: 30px;
+        }
+
+        .auth-section input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .auth-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .login-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .login-btn:hover {
+            background: #45a049;
+        }
+
+        .delete-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background: #da190b;
+        }
+
+        .delete-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .logout-btn {
+            background: #ff9800;
+            color: white;
+        }
+
+        .logout-btn:hover {
+            background: #e68900;
+        }
+
+        .status {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .status-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+        }
+
+        .success {
+            color: #4CAF50;
+        }
+
+        .error {
+            color: #f44336;
+        }
+
+        .info {
+            color: #2196F3;
+        }
+
+        .user-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ Delete All Shops & Data</h1>
+
+        <div class="warning">
+            <h2>⚠️ CRITICAL WARNING</h2>
+            <p><strong>This action will permanently delete:</strong></p>
+            <ul>
+                <li>All shops</li>
+                <li>All accounts (including sub-accounts)</li>
+                <li>All transactions</li>
+                <li>All financial years</li>
+                <li>All transaction templates</li>
+                <li>All logs and notifications</li>
+            </ul>
+            <p style="margin-top: 15px; font-weight: bold;">This action CANNOT be undone!</p>
+        </div>
+
+        <div id="authSection" class="auth-section">
+            <h3 style="margin-bottom: 15px;">Admin Login Required</h3>
+            <input type="email" id="emailInput" placeholder="Email" value="admin@accounting-app.com">
+            <input type="password" id="passwordInput" placeholder="Password" value="Admin123!">
+            <div class="button-group">
+                <button class="login-btn" onclick="login()">Login</button>
+            </div>
+        </div>
+
+        <div id="userInfo" class="user-info hidden">
+            <p><strong>Logged in as:</strong> <span id="userEmail"></span></p>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+
+        <div id="deleteSection" class="hidden">
+            <div class="button-group">
+                <button class="delete-btn" id="deleteBtn" onclick="deleteAllData()">
+                    DELETE ALL SHOPS & DATA
+                </button>
+            </div>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getFirestore, collection, getDocs, writeBatch, doc, query, where } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyC9PglQejrYi41ZShGj__FiAd3oxyfbRO0",
+            authDomain: "vavidiaapp.firebaseapp.com",
+            projectId: "vavidiaapp",
+            storageBucket: "vavidiaapp.firebasestorage.app",
+            messagingSenderId: "646948750836",
+            appId: "1:646948750836:web:549bf4bdcdf380dac5a5a1",
+            measurementId: "G-69J0441627"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+
+        // Make functions globally available
+        window.login = login;
+        window.logout = logout;
+        window.deleteAllData = deleteAllData;
+
+        // Monitor auth state
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                document.getElementById('authSection').classList.add('hidden');
+                document.getElementById('userInfo').classList.remove('hidden');
+                document.getElementById('deleteSection').classList.remove('hidden');
+                document.getElementById('userEmail').textContent = user.email;
+                addStatus('success', `✅ Logged in as ${user.email}`);
+            } else {
+                document.getElementById('authSection').classList.remove('hidden');
+                document.getElementById('userInfo').classList.add('hidden');
+                document.getElementById('deleteSection').classList.add('hidden');
+            }
+        });
+
+        function addStatus(type, message) {
+            const statusDiv = document.getElementById('status');
+            const item = document.createElement('div');
+            item.className = `status-item ${type}`;
+            item.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            statusDiv.appendChild(item);
+            statusDiv.scrollTop = statusDiv.scrollHeight;
+        }
+
+        async function login() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+
+            if (!email || !password) {
+                addStatus('error', '❌ Please enter email and password');
+                return;
+            }
+
+            try {
+                addStatus('info', '🔐 Logging in...');
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                addStatus('error', `❌ Login failed: ${error.message}`);
+            }
+        }
+
+        async function logout() {
+            try {
+                await signOut(auth);
+                document.getElementById('status').innerHTML = '';
+                addStatus('info', '👋 Logged out');
+            } catch (error) {
+                addStatus('error', `❌ Logout failed: ${error.message}`);
+            }
+        }
+
+        async function deleteAllData() {
+            if (!currentUser) {
+                addStatus('error', '❌ You must be logged in to perform this action');
+                return;
+            }
+
+            const confirmation = confirm('⚠️ FINAL WARNING ⚠️\n\nThis will permanently delete ALL shops and ALL related data.\n\nThis action CANNOT be undone!\n\nType "DELETE" in the next prompt to confirm.');
+
+            if (!confirmation) {
+                addStatus('info', 'ℹ️ Deletion cancelled');
+                return;
+            }
+
+            const confirmText = prompt('Type "DELETE" to confirm:');
+            if (confirmText !== 'DELETE') {
+                addStatus('error', '❌ Deletion cancelled - confirmation text did not match');
+                return;
+            }
+
+            const deleteBtn = document.getElementById('deleteBtn');
+            deleteBtn.disabled = true;
+            deleteBtn.innerHTML = '<span class="spinner"></span> Deleting...';
+
+            try {
+                addStatus('info', '🚨 Starting deletion process...');
+
+                // Step 1: Get all shops
+                addStatus('info', '📋 Fetching all shops...');
+                const shopsSnapshot = await getDocs(collection(db, 'shops'));
+                const shops = shopsSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                addStatus('info', `Found ${shops.length} shop(s)`);
+
+                if (shops.length === 0) {
+                    addStatus('success', '✅ No shops found. Nothing to delete.');
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = 'DELETE ALL SHOPS & DATA';
+                    return;
+                }
+
+                // Step 2: Delete related data for each shop
+                for (const shop of shops) {
+                    addStatus('info', `🏪 Processing: ${shop.name}`);
+
+                    // Delete accounts
+                    await deleteCollection('accounts', 'shopId', shop.id, 'accounts');
+
+                    // Delete transactions
+                    await deleteCollection('transactions', 'shopId', shop.id, 'transactions');
+
+                    // Delete financial years
+                    await deleteCollection('financialYears', 'shopId', shop.id, 'financial years');
+
+                    // Delete transaction templates
+                    await deleteCollection('transactionTemplates', 'shopId', shop.id, 'templates');
+
+                    // Delete logs
+                    await deleteCollection('logs', 'shopId', shop.id, 'logs');
+
+                    // Delete notifications
+                    await deleteCollection('notifications', 'shopId', shop.id, 'notifications');
+
+                    // Update users (remove shop reference)
+                    const usersQuery = query(collection(db, 'users'), where('shopId', '==', shop.id));
+                    const usersSnapshot = await getDocs(usersQuery);
+
+                    if (usersSnapshot.size > 0) {
+                        const userBatch = writeBatch(db);
+                        usersSnapshot.docs.forEach((userDoc) => {
+                            userBatch.update(userDoc.ref, { shopId: null });
+                        });
+                        await userBatch.commit();
+                        addStatus('success', `   ✓ Updated ${usersSnapshot.size} user(s)`);
+                    }
+
+                    addStatus('success', `✅ Completed: ${shop.name}`);
+                }
+
+                // Step 3: Delete all shops
+                addStatus('info', '🏪 Deleting all shops...');
+                const shopBatch = writeBatch(db);
+                shopsSnapshot.docs.forEach((shopDoc) => {
+                    shopBatch.delete(shopDoc.ref);
+                });
+                await shopBatch.commit();
+                addStatus('success', `✅ Deleted ${shops.length} shop(s)`);
+
+                addStatus('success', '🎉🎉🎉 ALL DATA DELETED SUCCESSFULLY! 🎉🎉🎉');
+
+            } catch (error) {
+                addStatus('error', `❌ Error: ${error.message}`);
+                console.error('Deletion error:', error);
+            } finally {
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = 'DELETE ALL SHOPS & DATA';
+            }
+        }
+
+        async function deleteCollection(collectionName, fieldName, fieldValue, displayName) {
+            const q = query(collection(db, collectionName), where(fieldName, '==', fieldValue));
+            const snapshot = await getDocs(q);
+
+            if (snapshot.size === 0) {
+                return;
+            }
+
+            addStatus('info', `   Deleting ${snapshot.size} ${displayName}...`);
+
+            // Delete in batches (Firestore limit is 500 operations per batch)
+            const batches = [];
+            let currentBatch = writeBatch(db);
+            let operationCount = 0;
+
+            snapshot.docs.forEach((document) => {
+                currentBatch.delete(document.ref);
+                operationCount++;
+
+                if (operationCount === 500) {
+                    batches.push(currentBatch);
+                    currentBatch = writeBatch(db);
+                    operationCount = 0;
+                }
+            });
+
+            if (operationCount > 0) {
+                batches.push(currentBatch);
+            }
+
+            for (let i = 0; i < batches.length; i++) {
+                await batches[i].commit();
+                addStatus('success', `   ✓ Deleted batch ${i + 1}/${batches.length} of ${displayName}`);
+            }
+        }
+    </script>
+</body>
+</html>

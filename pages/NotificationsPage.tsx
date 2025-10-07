@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Notification, LogType, User, Shop } from '../types';
 
 const LogTypeIcon: React.FC<{ type: LogType | undefined }> = ({ type }) => {
@@ -27,56 +27,177 @@ const LogTypeIcon: React.FC<{ type: LogType | undefined }> = ({ type }) => {
     }
 };
 
-const formatRelativeTime = (isoString: string) => {
-    const date = new Date(isoString);
-    const now = new Date();
-    const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
+const formatRelativeTime = (isoString: string | undefined | null) => {
+    try {
+        // Handle null, undefined, or empty string
+        if (!isoString || typeof isoString !== 'string') {
+            console.error('Invalid timestamp:', isoString);
+            return 'تاريخ غير صالح';
+        }
 
-    if (seconds < 60) return `منذ ${seconds} ثانية`;
-    if (minutes < 60) return `منذ ${minutes} دقيقة`;
-    if (hours < 24) return `منذ ${hours} ساعة`;
-    if (days <= 7) return `منذ ${days} أيام`;
-    return date.toLocaleDateString('ar-EG');
+        const date = new Date(isoString);
+
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+            console.error('Invalid date string:', isoString);
+            return 'تاريخ غير صالح';
+        }
+
+        const now = new Date();
+        const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
+        const minutes = Math.round(seconds / 60);
+        const hours = Math.round(minutes / 60);
+        const days = Math.round(hours / 24);
+
+        // Handle future dates
+        if (seconds < 0) {
+            console.warn('Future timestamp detected:', isoString);
+            return 'الآن';
+        }
+
+        if (seconds < 5) return 'الآن';
+        if (seconds < 60) return `منذ ${seconds} ثانية`;
+        if (minutes < 60) return `منذ ${minutes} دقيقة`;
+        if (hours < 24) return `منذ ${hours} ساعة`;
+        if (days <= 7) return `منذ ${days} أيام`;
+
+        // Format date for Khartoum timezone (Africa/Khartoum)
+        return new Intl.DateTimeFormat('ar-SD', {
+            timeZone: 'Africa/Khartoum',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
+    } catch (error) {
+        console.error('Error formatting date:', error, 'Input:', isoString);
+        return 'تاريخ غير صالح';
+    }
 };
 
 interface NotificationsPageProps {
     notifications: Notification[];
     onMarkAllRead: () => void;
+    onDeleteNotifications: (notificationIds: string[]) => Promise<void>;
     users: User[];
     shops: Shop[];
+    currentUser: User;
 }
 
-const NotificationsPage: React.FC<NotificationsPageProps> = ({ notifications, onMarkAllRead, users, shops }) => {
-    
+const NotificationsPage: React.FC<NotificationsPageProps> = ({ notifications, onMarkAllRead, onDeleteNotifications, users, shops, currentUser }) => {
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isDeleting, setIsDeleting] = useState(false);
+
     const getUserName = (userId: string | undefined) => users.find(u => u.id === userId)?.name || 'غير معروف';
     const getShopName = (shopId: string | undefined) => shops.find(s => s.id === shopId)?.name || 'غير معروف';
+
+    const isAdmin = currentUser.role === 'admin';
+
+    // Check if all notifications are selected
+    const allSelected = useMemo(() => {
+        return notifications.length > 0 && notifications.every(n => selectedIds.has(n.id));
+    }, [notifications, selectedIds]);
+
+    // Toggle individual notification selection
+    const handleToggleSelection = (notificationId: string) => {
+        setSelectedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(notificationId)) {
+                newSet.delete(notificationId);
+            } else {
+                newSet.add(notificationId);
+            }
+            return newSet;
+        });
+    };
+
+    // Toggle select all
+    const handleToggleSelectAll = () => {
+        if (allSelected) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(notifications.map(n => n.id)));
+        }
+    };
+
+    // Handle delete selected notifications
+    const handleDeleteSelected = async () => {
+        if (selectedIds.size === 0 || !isAdmin) return;
+
+        if (window.confirm(`هل أنت متأكد من حذف ${selectedIds.size} إشعار(ات)؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+            setIsDeleting(true);
+            try {
+                await onDeleteNotifications(Array.from(selectedIds));
+                setSelectedIds(new Set()); // Clear selection after successful deletion
+            } catch (error) {
+                console.error('Failed to delete notifications:', error);
+                alert('فشل حذف الإشعارات. يرجى المحاولة مرة أخرى.');
+            } finally {
+                setIsDeleting(false);
+            }
+        }
+    };
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center gap-4 flex-wrap">
                 <h1 className="text-3xl font-bold">إشعارات النظام</h1>
-                {notifications.some(n => !n.isRead) && (
-                    <button
-                        onClick={onMarkAllRead}
-                        className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition duration-300"
-                    >
-                        تحديد الكل كمقروء
-                    </button>
-                )}
+                <div className="flex gap-2 flex-wrap">
+                    {notifications.some(n => !n.isRead) && (
+                        <button
+                            onClick={onMarkAllRead}
+                            className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition duration-300"
+                        >
+                            تحديد الكل كمقروء
+                        </button>
+                    )}
+                    {isAdmin && selectedIds.size > 0 && (
+                        <button
+                            onClick={handleDeleteSelected}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isDeleting ? 'جاري الحذف...' : `حذف المحدد (${selectedIds.size})`}
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-surface p-4 sm:p-6 rounded-lg shadow-lg">
+                {isAdmin && notifications.length > 0 && (
+                    <div className="mb-4 pb-4 border-b border-gray-700">
+                        <label className="flex items-center gap-2 cursor-pointer hover:bg-background/30 p-2 rounded transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={allSelected}
+                                onChange={handleToggleSelectAll}
+                                className="w-4 h-4 rounded border-gray-600 bg-background text-accent focus:ring-2 focus:ring-accent cursor-pointer"
+                            />
+                            <span className="text-text-primary font-medium">
+                                {allSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                            </span>
+                        </label>
+                    </div>
+                )}
                 <div className="space-y-4">
                     {notifications.map((notif) => (
                         <div
                             key={notif.id}
-                            className={`flex items-start gap-4 p-4 rounded-lg transition-colors duration-300 ${!notif.isRead ? 'bg-background' : 'bg-transparent'}`}
+                            className={`flex items-start gap-4 p-4 rounded-lg transition-colors duration-300 ${!notif.isRead ? 'bg-background' : 'bg-transparent'} ${selectedIds.has(notif.id) ? 'ring-2 ring-accent' : ''}`}
                         >
+                            {isAdmin && (
+                                <div className="flex-shrink-0 mt-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.has(notif.id)}
+                                        onChange={() => handleToggleSelection(notif.id)}
+                                        className="w-4 h-4 rounded border-gray-600 bg-background text-accent focus:ring-2 focus:ring-accent cursor-pointer"
+                                    />
+                                </div>
+                            )}
                             {!notif.isRead && <div className="w-2.5 h-2.5 bg-accent rounded-full mt-3 flex-shrink-0" title="غير مقروء"></div>}
-                            <div className={`flex-shrink-0 mt-1 ${notif.isRead ? 'ml-5' : ''}`}>
+                            <div className={`flex-shrink-0 mt-1 ${notif.isRead && !isAdmin ? 'ml-5' : ''}`}>
                                 <LogTypeIcon type={notif.logType} />
                             </div>
                             <div className="flex-grow">

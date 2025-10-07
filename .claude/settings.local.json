@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(node:*)",
+      "Bash(npm run migrate-purchases:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run:*)",
+      "mcp__puppeteer-enhanced__*",
+      "mcp__playwright__*",
+      "mcp__supabase__*",
+      "mcp__context7__*",
+      "Bash(del types.js)",
+      "Bash(grep:*)",
+      "Bash(ping:*)",
+      "Bash(echo $HOME)",
+      "Read(//c/Users/skd/.claude/**)",
+      "Bash(cat:*)",
+      "Read(//c/Users/skd/.vscode/extensions/**)",
+      "Read(//c/Users/skd/**)",
+      "Read(//c/c/Users/skd/**)",
+      "Bash(npx tsc:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(npx firebase deploy:*)",
+      "Bash(firebase init:*)",
+      "Bash(firebase login:*)",
+      "Bash(firebase projects:list:*)",
+      "Bash(npx playwright install:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(taskkill:*)",
+      "Bash(firebase:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

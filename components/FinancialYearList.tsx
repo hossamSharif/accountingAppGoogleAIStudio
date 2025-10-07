@@ -1,5 +1,6 @@
 import React from 'react';
 import { FinancialYear } from '../types';
+import { formatCurrency } from '../utils/formatting';
 
 const LockIcon = () => (
     <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
@@ -16,9 +17,9 @@ const FinancialYearList: React.FC<FinancialYearListProps> = ({ financialYears, o
         return new Date(dateString).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
     };
 
-    const formatCurrency = (amount: number | undefined) => {
+    const formatCurrencyValue = (amount: number | undefined) => {
         if (amount === undefined) return '-';
-        return new Intl.NumberFormat('ar-SD', { style: 'currency', currency: 'SDG', minimumFractionDigits: 0 }).format(amount);
+        return formatCurrency(amount, false);
     };
     
     return (
@@ -46,8 +47,8 @@ const FinancialYearList: React.FC<FinancialYearListProps> = ({ financialYears, o
                                     {fy.status === 'open' ? 'مفتوحة' : 'مغلقة'}
                                 </span>
                             </td>
-                            <td className="p-3 font-mono">{formatCurrency(fy.openingStockValue)}</td>
-                            <td className="p-3 font-mono">{formatCurrency(fy.closingStockValue)}</td>
+                            <td className="p-3 font-mono">{formatCurrencyValue(fy.openingStockValue)}</td>
+                            <td className="p-3 font-mono">{formatCurrencyValue(fy.closingStockValue)}</td>
                             <td className="p-3 text-left">
                                 {fy.status === 'open' && (
                                      <button 

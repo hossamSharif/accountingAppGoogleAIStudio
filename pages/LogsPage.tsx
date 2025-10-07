@@ -26,18 +26,38 @@ const LogTypeIcon: React.FC<{ type: LogType }> = ({ type }) => {
 };
 
 const formatRelativeTime = (isoString: string) => {
-    const date = new Date(isoString);
-    const now = new Date();
-    const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
+    try {
+        const date = new Date(isoString);
 
-    if (seconds < 60) return `منذ ${seconds} ثوان`;
-    if (minutes < 60) return `منذ ${minutes} دقائق`;
-    if (hours < 24) return `منذ ${hours} ساعات`;
-    if (days <= 7) return `منذ ${days} أيام`;
-    return date.toLocaleDateString('ar-EG');
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+            return 'تاريخ غير صالح';
+        }
+
+        const now = new Date();
+        const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
+        const minutes = Math.round(seconds / 60);
+        const hours = Math.round(minutes / 60);
+        const days = Math.round(hours / 24);
+
+        if (seconds < 60) return `منذ ${seconds} ثانية`;
+        if (minutes < 60) return `منذ ${minutes} دقيقة`;
+        if (hours < 24) return `منذ ${hours} ساعة`;
+        if (days <= 7) return `منذ ${days} أيام`;
+
+        // Format date for Khartoum timezone (Africa/Khartoum)
+        return new Intl.DateTimeFormat('ar-SD', {
+            timeZone: 'Africa/Khartoum',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
+    } catch (error) {
+        console.error('Error formatting date:', error);
+        return 'تاريخ غير صالح';
+    }
 };
 
 

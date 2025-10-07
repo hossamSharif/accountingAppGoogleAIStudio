@@ -3,20 +3,20 @@ import React, { useState } from 'react';
 import { Shop, FinancialYear, User, Account, Transaction } from '../types';
 import ShopManagementPage from './ShopManagementPage';
 import UserManagementPage from './UserManagementPage';
-import StockValueModal from '../components/StockValueModal';
-import FinancialYearModal from '../components/FinancialYearModal';
-import FinancialYearList from '../components/FinancialYearList';
 import ShopAccountsView from './ShopAccountsView';
 import AccountsPage from './AccountsPage';
+import { FinancialYearManagementPage } from './FinancialYearManagementPage';
 
 enum SettingsTab {
     SHOPS = 'إدارة المتاجر',
     USERS = 'إدارة المستخدمين',
     FINANCIAL_YEARS = 'السنوات المالية',
-    ACCOUNTS = 'شجرة الحسابات'
+    ACCOUNTS = 'شجرة الحسابات',
+    ADMIN_TOOLS = 'أدوات الإدارة'
 }
 
 interface SettingsPageProps {
+    currentUser: User | null;
     activeShop: Shop | null;
     // Shops
     shops: Shop[];
@@ -47,17 +47,18 @@ const PlusIcon = () => <svg className="w-5 h-5 ml-2" fill="none" stroke="current
 
 const SettingsPage: React.FC<SettingsPageProps> = (props) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>(SettingsTab.SHOPS);
-    const [isFyModalOpen, setIsFyModalOpen] = useState(false);
-    const [closingYear, setClosingYear] = useState<FinancialYear | null>(null);
     const [viewingAccountsForShop, setViewingAccountsForShop] = useState<Shop | null>(null);
 
-    const handleCloseYear = (stockValue: number) => {
-        if (closingYear) {
-            props.onCloseFinancialYear(closingYear.id, stockValue);
-        }
-        setClosingYear(null);
-    };
-    
+    // Handle case when user is not logged in
+    if (!props.currentUser) {
+        return (
+            <div className="text-center bg-surface p-8 rounded-lg">
+                <h2 className="text-2xl font-bold mb-2">يتطلب تسجيل الدخول</h2>
+                <p className="text-text-secondary">يجب عليك تسجيل الدخول للوصول إلى إعدادات النظام.</p>
+            </div>
+        );
+    }
+
     // Reset child view when changing tabs
     React.useEffect(() => {
         setViewingAccountsForShop(null);
@@ -78,11 +79,8 @@ const SettingsPage: React.FC<SettingsPageProps> = (props) => {
                         onBack={() => setViewingAccountsForShop(null)}
                     />
                 }
-                return <ShopManagementPage 
-                    shops={props.shops}
-                    onAddShop={props.onAddShop}
-                    onUpdateShop={props.onUpdateShop}
-                    onToggleShopStatus={props.onToggleShopStatus}
+                return <ShopManagementPage
+                    currentUser={props.currentUser!}
                     onViewAccounts={(shop) => setViewingAccountsForShop(shop)}
                 />;
             case SettingsTab.USERS:
@@ -95,29 +93,7 @@ const SettingsPage: React.FC<SettingsPageProps> = (props) => {
                     onDeleteUser={props.onDeleteUser}
                 />;
             case SettingsTab.FINANCIAL_YEARS:
-                 if (!props.activeShop) {
-                    return (
-                        <div className="text-center bg-surface p-8 rounded-lg mt-6">
-                            <h2 className="text-2xl font-bold mb-2">الرجاء تحديد متجر</h2>
-                            <p className="text-text-secondary">يجب عليك تحديد متجر من القائمة في الأعلى لعرض وإدارة سنواته المالية.</p>
-                        </div>
-                    );
-                }
-                const shopFinancialYears = props.financialYears.filter(fy => fy.shopId === props.activeShop?.id);
-                return (
-                    <div className="space-y-6">
-                         <div className="flex justify-between items-center gap-4 flex-wrap">
-                            <h2 className="text-2xl font-bold">السنوات المالية لـ "{props.activeShop.name}"</h2>
-                             <button onClick={() => setIsFyModalOpen(true)} className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-lg">
-                                 <PlusIcon />
-                                 <span>إضافة سنة مالية جديدة</span>
-                             </button>
-                         </div>
-                         <div className="bg-surface p-6 rounded-lg shadow-lg">
-                             <FinancialYearList financialYears={shopFinancialYears} onCloseYear={fy => setClosingYear(fy)} />
-                         </div>
-                     </div>
-                );
+                return <FinancialYearManagementPage />;
             case SettingsTab.ACCOUNTS:
                 if (!props.activeShop) {
                     return (
@@ -127,14 +103,24 @@ const SettingsPage: React.FC<SettingsPageProps> = (props) => {
                         </div>
                     );
                 }
-                return <AccountsPage
-                    accounts={props.accounts.filter(a => a.shopId === props.activeShop?.id)}
-                    transactions={props.transactions.filter(t => t.shopId === props.activeShop?.id)}
-                    onAddAccount={(accountData) => props.onAddAccount(accountData, props.activeShop?.id)}
-                    onUpdateAccount={props.onUpdateAccount}
-                    onToggleAccountStatus={props.onToggleAccountStatus}
-                    onDeleteAccount={props.onDeleteAccount}
-                />;
+                return <AccountsPage />;
+            case SettingsTab.ADMIN_TOOLS:
+                return (
+                    <div className="p-6">
+                        <h2 className="text-xl font-bold mb-4">أدوات الإدارة</h2>
+                        <p>المستخدم الحالي: {props.currentUser!.name}</p>
+                        <p>الدور: {props.currentUser!.role}</p>
+                        {props.currentUser!.role === 'admin' ? (
+                            <div className="mt-4 p-4 bg-blue-50 rounded">
+                                <p>أدوات الإدارة متاحة</p>
+                            </div>
+                        ) : (
+                            <div className="mt-4 p-4 bg-red-50 rounded">
+                                <p>غير مسموح لك بالوصول لأدوات الإدارة</p>
+                            </div>
+                        )}
+                    </div>
+                );
             default:
                 return null;
         }
@@ -161,28 +147,6 @@ const SettingsPage: React.FC<SettingsPageProps> = (props) => {
             <div className="mt-6">
                 {renderActiveTab()}
             </div>
-            
-            {props.activeShop && (
-                <FinancialYearModal 
-                    isOpen={isFyModalOpen}
-                    onClose={() => setIsFyModalOpen(false)}
-                    onSave={(fyData) => {
-                        props.onAddFinancialYear(fyData);
-                        setIsFyModalOpen(false);
-                    }}
-                    shopId={props.activeShop.id}
-                    existingYears={props.financialYears.filter(fy => fy.shopId === props.activeShop?.id)}
-                />
-            )}
-            
-            {closingYear && (
-                <StockValueModal 
-                    isOpen={!!closingYear}
-                    onClose={() => setClosingYear(null)}
-                    onConfirm={handleCloseYear}
-                    financialYearName={closingYear.name}
-                />
-            )}
         </div>
     );
 };

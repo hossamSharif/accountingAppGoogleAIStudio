@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Log, LogType, User, Shop } from '../types';
 
 const LogTypeIcon: React.FC<{ type: LogType }> = ({ type }) => {
@@ -44,23 +44,118 @@ interface ShopLogsPageProps {
     logs: Log[];
     users: User[];
     activeShop: Shop | null;
+    shops: Shop[];
+    currentUser: User;
+    onDeleteLogs: (logIds: string[]) => Promise<void>;
 }
 
-const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop }) => {
+const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, shops, currentUser, onDeleteLogs }) => {
     const [logFilter, setLogFilter] = useState<LogType | 'ALL'>('ALL');
+    const [selectedShopIds, setSelectedShopIds] = useState<string[]>([]);
+    const [showAllShops, setShowAllShops] = useState(false);
+    const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // Initialize selected shops with active shop when it changes
+    useEffect(() => {
+        if (activeShop && !showAllShops) {
+            setSelectedShopIds([activeShop.id]);
+        }
+    }, [activeShop, showAllShops]);
 
     const filteredLogs = useMemo(() => {
-        if (logFilter === 'ALL') {
-            return logs;
+        let result = logs;
+
+        // Filter by shops
+        if (!showAllShops && selectedShopIds.length > 0) {
+            result = result.filter(log => log.shopId && selectedShopIds.includes(log.shopId));
         }
-        return logs.filter(log => log.type === logFilter);
-    }, [logs, logFilter]);
+
+        // Filter by log type
+        if (logFilter !== 'ALL') {
+            result = result.filter(log => log.type === logFilter);
+        }
+
+        return result;
+    }, [logs, logFilter, selectedShopIds, showAllShops]);
     
     // FIX: Cast Object.values to string array to resolve type inference issue.
     const logTypes = Object.values(LogType) as string[];
 
     const getUserName = (userId: string) => {
         return users.find(u => u.id === userId)?.name || 'مستخدم غير معروف';
+    };
+
+    const getShopName = (shopId?: string) => {
+        if (!shopId) return 'غير محدد';
+        return shops.find(s => s.id === shopId)?.name || 'متجر غير معروف';
+    };
+
+    const toggleShopSelection = (shopId: string) => {
+        setSelectedShopIds(prev => {
+            if (prev.includes(shopId)) {
+                return prev.filter(id => id !== shopId);
+            } else {
+                return [...prev, shopId];
+            }
+        });
+    };
+
+    const handleShowAllShopsToggle = () => {
+        setShowAllShops(prev => !prev);
+        if (!showAllShops) {
+            setSelectedShopIds([]);
+        }
+    };
+
+    // Show shop column when viewing multiple shops
+    const showShopColumn = showAllShops || selectedShopIds.length > 1;
+
+    const isAdmin = currentUser.role === 'admin';
+
+    // Check if all filtered logs are selected
+    const allSelected = useMemo(() => {
+        return filteredLogs.length > 0 && filteredLogs.every(log => selectedLogIds.has(log.id));
+    }, [filteredLogs, selectedLogIds]);
+
+    // Toggle individual log selection
+    const handleToggleLogSelection = (logId: string) => {
+        setSelectedLogIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(logId)) {
+                newSet.delete(logId);
+            } else {
+                newSet.add(logId);
+            }
+            return newSet;
+        });
+    };
+
+    // Toggle select all filtered logs
+    const handleToggleSelectAll = () => {
+        if (allSelected) {
+            setSelectedLogIds(new Set());
+        } else {
+            setSelectedLogIds(new Set(filteredLogs.map(log => log.id)));
+        }
+    };
+
+    // Handle delete selected logs
+    const handleDeleteSelected = async () => {
+        if (selectedLogIds.size === 0 || !isAdmin) return;
+
+        if (window.confirm(`هل أنت متأكد من حذف ${selectedLogIds.size} سجل(ات)؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+            setIsDeleting(true);
+            try {
+                await onDeleteLogs(Array.from(selectedLogIds));
+                setSelectedLogIds(new Set()); // Clear selection after successful deletion
+            } catch (error) {
+                console.error('Failed to delete logs:', error);
+                alert('فشل حذف السجلات. يرجى المحاولة مرة أخرى.');
+            } finally {
+                setIsDeleting(false);
+            }
+        }
     };
 
     if (!activeShop) {
@@ -77,32 +172,122 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop }) 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center gap-4 flex-wrap">
-                <h1 className="text-3xl font-bold">
-                    سجل نشاطات: <span className="text-primary">{activeShop.name}</span>
-                </h1>
-                <div className="flex gap-2 flex-wrap items-center">
-                    <label htmlFor="logFilterAdmin" className="text-text-secondary">تصفية حسب:</label>
-                    <select
-                        id="logFilterAdmin"
-                        value={logFilter}
-                        onChange={(e) => setLogFilter(e.target.value as LogType | 'ALL')}
-                        className="bg-surface border border-gray-600 rounded-lg py-2 px-4 text-text-primary focus:ring-primary focus:border-primary"
+                <div>
+                    <h1 className="text-3xl font-bold">
+                        سجل النشاطات
+                    </h1>
+                    <p className="text-text-secondary text-sm mt-1">
+                        {showAllShops
+                            ? `عرض جميع المتاجر (${filteredLogs.length} سجل)`
+                            : selectedShopIds.length === 1
+                                ? `${getShopName(selectedShopIds[0])} (${filteredLogs.length} سجل)`
+                                : `${selectedShopIds.length} متاجر محددة (${filteredLogs.length} سجل)`
+                        }
+                    </p>
+                </div>
+
+                <div className="flex gap-3 flex-wrap items-center">
+                    {/* Delete Selected Button - Only show for admin */}
+                    {isAdmin && selectedLogIds.size > 0 && (
+                        <button
+                            onClick={handleDeleteSelected}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isDeleting ? 'جاري الحذف...' : `حذف المحدد (${selectedLogIds.size})`}
+                        </button>
+                    )}
+
+                    {/* Toggle All Shops */}
+                    <button
+                        onClick={handleShowAllShopsToggle}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                            showAllShops
+                                ? 'bg-primary text-white'
+                                : 'bg-surface border border-gray-600 text-text-primary hover:border-primary'
+                        }`}
                     >
-                        <option value="ALL">الكل</option>
-                        {logTypes.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                        ))}
-                    </select>
+                        {showAllShops ? '✓ جميع المتاجر' : 'عرض جميع المتاجر'}
+                    </button>
+
+                    {/* Log Type Filter */}
+                    <div className="flex gap-2 items-center">
+                        <label htmlFor="logFilterAdmin" className="text-text-secondary">نوع النشاط:</label>
+                        <select
+                            id="logFilterAdmin"
+                            value={logFilter}
+                            onChange={(e) => setLogFilter(e.target.value as LogType | 'ALL')}
+                            className="bg-surface border border-gray-600 rounded-lg py-2 px-4 text-text-primary focus:ring-primary focus:border-primary"
+                        >
+                            <option value="ALL">الكل</option>
+                            {logTypes.map(type => (
+                                <option key={type} value={type}>{type}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
 
+            {/* Shop Filter Section - Only show when not showing all shops */}
+            {!showAllShops && (
+                <div className="bg-surface p-4 rounded-lg shadow-lg">
+                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        تصفية حسب المتجر
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                        {shops.filter(shop => shop.isActive).map(shop => (
+                            <button
+                                key={shop.id}
+                                onClick={() => toggleShopSelection(shop.id)}
+                                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                                    selectedShopIds.includes(shop.id)
+                                        ? 'bg-primary text-white shadow-lg scale-105'
+                                        : 'bg-background border border-gray-600 text-text-secondary hover:border-primary hover:text-text-primary'
+                                }`}
+                            >
+                                {selectedShopIds.includes(shop.id) && '✓ '}
+                                {shop.name}
+                            </button>
+                        ))}
+                        {shops.filter(shop => shop.isActive).length === 0 && (
+                            <p className="text-text-secondary">لا توجد متاجر نشطة</p>
+                        )}
+                    </div>
+                    {selectedShopIds.length > 1 && (
+                        <div className="mt-3 text-sm text-text-secondary">
+                            تم اختيار {selectedShopIds.length} متجر
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="bg-surface p-6 rounded-lg shadow-lg">
                 <div className="overflow-x-auto">
+                    {isAdmin && filteredLogs.length > 0 && (
+                        <div className="mb-4 pb-4 border-b border-gray-700">
+                            <label className="flex items-center gap-2 cursor-pointer hover:bg-background/30 p-2 rounded transition-colors w-fit">
+                                <input
+                                    type="checkbox"
+                                    checked={allSelected}
+                                    onChange={handleToggleSelectAll}
+                                    className="w-4 h-4 rounded border-gray-600 bg-background text-accent focus:ring-2 focus:ring-accent cursor-pointer"
+                                />
+                                <span className="text-text-primary font-medium">
+                                    {allSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                                </span>
+                            </label>
+                        </div>
+                    )}
                     <table className="w-full text-right">
                         <thead>
                             <tr className="border-b border-gray-700 text-text-secondary">
+                                {isAdmin && <th className="p-3 w-12"></th>}
                                 <th className="p-3 w-12"></th>
                                 <th className="p-3">المستخدم</th>
+                                {showShopColumn && <th className="p-3">المتجر</th>}
                                 <th className="p-3">النوع</th>
                                 <th className="p-3">الرسالة</th>
                                 <th className="p-3">الوقت</th>
@@ -110,9 +295,26 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop }) 
                         </thead>
                         <tbody>
                             {filteredLogs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((log, index) => (
-                                <tr key={log.id} className={`border-b border-gray-700 transition-colors duration-200 hover:bg-background/50 ${index % 2 === 0 ? 'bg-background/20' : ''}`}>
+                                <tr key={log.id} className={`border-b border-gray-700 transition-colors duration-200 hover:bg-background/50 ${index % 2 === 0 ? 'bg-background/20' : ''} ${selectedLogIds.has(log.id) ? 'ring-2 ring-accent' : ''}`}>
+                                    {isAdmin && (
+                                        <td className="p-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedLogIds.has(log.id)}
+                                                onChange={() => handleToggleLogSelection(log.id)}
+                                                className="w-4 h-4 rounded border-gray-600 bg-background text-accent focus:ring-2 focus:ring-accent cursor-pointer"
+                                            />
+                                        </td>
+                                    )}
                                     <td className="p-3"><LogTypeIcon type={log.type} /></td>
                                     <td className="p-3 font-medium text-text-primary">{getUserName(log.userId)}</td>
+                                    {showShopColumn && (
+                                        <td className="p-3 text-text-primary">
+                                            <span className="inline-block px-2 py-1 rounded bg-primary/20 text-primary text-sm">
+                                                {getShopName(log.shopId)}
+                                            </span>
+                                        </td>
+                                    )}
                                     <td className="p-3 font-medium text-text-primary">{log.type}</td>
                                     <td className="p-3 text-text-secondary">{log.message}</td>
                                     <td className="p-3 text-text-secondary whitespace-nowrap">{formatRelativeTime(log.timestamp)}</td>
@@ -120,8 +322,10 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop }) 
                             ))}
                             {filteredLogs.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="text-center p-8 text-text-secondary">
-                                        لا توجد سجلات لهذا المتجر أو التصفية الحالية.
+                                    <td colSpan={showShopColumn ? (isAdmin ? 7 : 6) : (isAdmin ? 6 : 5)} className="text-center p-8 text-text-secondary">
+                                        {selectedShopIds.length === 0 && !showAllShops
+                                            ? 'الرجاء اختيار متجر واحد على الأقل لعرض السجلات'
+                                            : 'لا توجد سجلات للتصفية الحالية'}
                                     </td>
                                 </tr>
                             )}

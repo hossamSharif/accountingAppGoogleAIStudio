@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Account, AccountNature, Transaction } from '../types';
+import { Account, AccountNature, Transaction, User } from '../types';
+import { formatCurrency } from '../utils/formatting';
 
 const EditIcon = () => (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
@@ -22,13 +23,10 @@ interface AccountListProps {
     onToggleStatus: (account: Account) => void;
     onDelete: (account: Account) => void;
     accountBalances: { [key: string]: number };
+    currentUser: User | null;
 }
 
-const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ar-SD', { style: 'currency', currency: 'SDG', minimumFractionDigits: 0 }).format(amount);
-};
-
-const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdit, onToggleStatus, onDelete, accountBalances }) => {
+const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdit, onToggleStatus, onDelete, accountBalances, currentUser }) => {
     const parentAccounts = accounts.filter(a => !a.parentId).sort((a,b) => a.accountCode.localeCompare(b.accountCode));
     const getChildAccounts = (parentId: string) => accounts.filter(a => a.parentId === parentId).sort((a,b) => a.accountCode.localeCompare(b.accountCode));
 
@@ -47,14 +45,24 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
         // Display balance as a positive number for the user, reflecting its nature.
         const displayBalance = account.nature === AccountNature.CREDIT ? -balance : balance;
         const hasTransactions = accountsWithTransactions.has(account.id);
+        const isAdmin = currentUser?.role === 'admin';
+
+        // Check if admin can edit (always true for admin, restricted for parent accounts for non-admin)
+        const canEdit = isAdmin || !isParent;
+        const canToggleStatus = isAdmin || !isParent;
+        const canDelete = (isAdmin || !isParent) && !hasTransactions;
 
         return (
-             <tr key={account.id} className={isParent ? "bg-gray-800 hover:bg-gray-700/50" : "border-b border-gray-700 transition-colors duration-200 hover:bg-background/50"}>
+             <tr key={account.id} className={isParent ? "bg-gray-800 hover:bg-gray-700/50" : "bg-gray-800/30 border-b border-gray-700 transition-colors duration-200 hover:bg-background/50"}>
                 <td className="p-3 text-text-secondary font-mono">{account.accountCode}</td>
-                <td className={`p-3 font-medium text-text-primary ${isParent ? 'font-bold' : 'pr-8'}`}>{account.name}</td>
+                <td className={`p-3 font-medium ${isParent ? 'font-bold text-text-primary' : 'text-gray-300'}`}>
+                    {/* Add visual hierarchy with dash for sub-accounts */}
+                    {!isParent && <span className="text-gray-500 mr-2">—</span>}
+                    {account.name}
+                </td>
                 <td className="p-3 text-text-secondary">{account.classification}</td>
                 <td className="p-3 text-text-secondary">{account.nature}</td>
-                <td className={`p-3 font-mono ${isParent ? 'font-bold text-accent' : 'text-text-primary'}`}>{formatCurrency(displayBalance)}</td>
+                <td className={`p-3 font-mono ${isParent ? 'font-bold text-accent' : 'text-gray-300'}`}>{formatCurrency(displayBalance)}</td>
                 <td className="p-3">
                     <span className={`px-2 py-1 text-xs rounded-full ${account.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                         {account.isActive ? 'نشط' : 'غير نشط'}
@@ -62,18 +70,28 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                 </td>
                 <td className="p-3 text-left">
                     <div className="flex items-center justify-end space-x-1 space-x-reverse">
-                        <button onClick={() => !isParent && onEdit(account)} disabled={isParent} className="text-accent hover:text-blue-400 p-2 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed" aria-label={`تعديل ${account.name}`}>
+                        <button
+                            onClick={() => canEdit && onEdit(account)}
+                            disabled={!canEdit}
+                            className="text-accent hover:text-blue-400 p-2 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                            aria-label={`تعديل ${account.name}`}
+                        >
                             <EditIcon />
                         </button>
-                        <button onClick={() => !isParent && onToggleStatus(account)} disabled={isParent} className={`p-2 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${account.isActive ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`} aria-label={`${account.isActive ? 'إلغاء تفعيل' : 'تفعيل'} ${account.name}`}>
+                        <button
+                            onClick={() => canToggleStatus && onToggleStatus(account)}
+                            disabled={!canToggleStatus}
+                            className={`p-2 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${account.isActive ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`}
+                            aria-label={`${account.isActive ? 'إلغاء تفعيل' : 'تفعيل'} ${account.name}`}
+                        >
                             {account.isActive ? <ToggleOffIcon /> : <ToggleOnIcon />}
                         </button>
                         <button
-                            onClick={() => !isParent && !hasTransactions && onDelete(account)}
-                            disabled={isParent || hasTransactions}
+                            onClick={() => canDelete && onDelete(account)}
+                            disabled={!canDelete}
                             className="text-red-500 hover:text-red-400 p-2 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
                             aria-label={`حذف ${account.name}`}
-                            title={hasTransactions ? 'لا يمكن حذف حساب مرتبط بحركات' : `حذف ${account.name}`}
+                            title={hasTransactions ? 'لا يمكن حذف حساب مرتبط بحركات' : !canDelete ? 'غير مسموح' : `حذف ${account.name}`}
                         >
                             <DeleteIcon />
                         </button>

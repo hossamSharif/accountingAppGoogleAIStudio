@@ -4,7 +4,9 @@ import React, { useMemo, useState } from 'react';
 import StatCard from './StatCard';
 import DailyEntryForm from './DailyEntryForm';
 import RecentTransactions from './RecentTransactions';
-import { Transaction, Account, TransactionType, FinancialYear, AccountType } from '../types';
+import { Transaction, Account, TransactionType, FinancialYear, AccountType, Shop, LogType, User } from '../types';
+import { formatCurrency } from '../utils/formatting';
+import { BalanceCalculator } from '../services/balanceCalculator';
 
 const DollarSignIcon = () => <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01"></path></svg>;
 const ShoppingCartIcon = () => <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>;
@@ -18,7 +20,8 @@ const PlusIcon = () => <svg className="w-6 h-6" fill="none" stroke="currentColor
 
 
 interface DashboardProps {
-    transactions: Transaction[]; // Now represents only daily transactions
+    transactions: Transaction[]; // Daily transactions for the selected date
+    allTransactions: Transaction[]; // All transactions for balance calculation
     accounts: Account[];
     onAddTransaction: (transaction: Omit<Transaction, 'id' | 'shopId' | 'date'>) => void;
     onUpdateTransaction: (transaction: Transaction) => void;
@@ -27,6 +30,11 @@ interface DashboardProps {
     onAddAccount: (account: Omit<Account, 'id' | 'isActive' | 'shopId'>, forShopId?: string) => Account | null;
     selectedDate: Date;
     setSelectedDate: (date: Date) => void;
+    activeShop?: Shop | null;
+    onAddLog?: (type: LogType, message: string) => void;
+    user?: User | null;
+    shops?: Shop[];
+    onSelectShop?: (shop: Shop) => void;
 }
 
 const DateNavigator: React.FC<{selectedDate: Date, setSelectedDate: (date: Date) => void}> = ({ selectedDate, setSelectedDate }) => {
@@ -77,9 +85,11 @@ const DateNavigator: React.FC<{selectedDate: Date, setSelectedDate: (date: Date)
     );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ transactions, accounts, onAddTransaction, onUpdateTransaction, onDeleteTransaction, openFinancialYear, onAddAccount, selectedDate, setSelectedDate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransactions, accounts, onAddTransaction, onUpdateTransaction, onDeleteTransaction, openFinancialYear, onAddAccount, selectedDate, setSelectedDate, activeShop, onAddLog, user, shops, onSelectShop }) => {
     const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+    const [isCalculatingBalances, setIsCalculatingBalances] = useState(false);
+    const [balancesCache, setBalancesCache] = useState<{ cash: number; bank: number }>({ cash: 0, bank: 0 });
 
     const handleStartEdit = (transaction: Transaction) => {
         setEditingTransaction(transaction);
@@ -94,50 +104,89 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, accounts, onAddTran
     // The 'transactions' prop now comes pre-filtered for the selected date from App.tsx
     const dailyTransactions = transactions;
 
+    // Real-time balance calculation from ALL transactions using double-entry accounting
     const { totalCashBalance, totalBankBalance } = useMemo(() => {
-        const cashAccountIds = new Set(accounts.filter(a => a.type === AccountType.CASH).map(a => a.id));
-        const bankAccountIds = new Set(accounts.filter(a => a.type === AccountType.BANK).map(a => a.id));
+        const cashAccounts = accounts.filter(a => a.type === AccountType.CASH);
+        const bankAccounts = accounts.filter(a => a.type === AccountType.BANK);
 
         let cash = 0;
         let bank = 0;
-        
-        // Note: This KPI reflects the *overall* balance, not just for the selected day.
-        // It iterates through all accounts and transactions for the shop.
-        // This is a design choice and can be adjusted if needed.
 
-        accounts.forEach(acc => {
-            if (cashAccountIds.has(acc.id)) {
-                cash += acc.openingBalance || 0;
-            } else if (bankAccountIds.has(acc.id)) {
-                bank += acc.openingBalance || 0;
-            }
+        // Start with opening balances
+        cashAccounts.forEach(acc => {
+            cash += acc.openingBalance || 0;
         });
 
-        // To calculate total balance, we need all transactions, not just daily ones.
-        // This is a point of complexity. For now, let's assume `accounts` prop contains
-        // all accounts and we calculate balance from their opening balances and entries.
-        // A more robust solution would be to pass all transactions to this component as well.
-        // For now, let's keep it simple and assume balance calculation is handled elsewhere or is an approximation.
-        // Re-evaluating: The KPI should reflect the *current* total balance. It must be calculated from all transactions.
-        // The parent component App.tsx holds all transactions. For now we will calculate based on what is available.
-        // TODO: Pass all transactions for accurate balance calculation.
-        // For this refactor, we will calculate based on daily transactions for simplicity.
-        
-        return { totalCashBalance: cash, totalBankBalance: bank };
-    }, [accounts]);
+        bankAccounts.forEach(acc => {
+            bank += acc.openingBalance || 0;
+        });
 
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('ar-SD', { style: 'currency', currency: 'SDG', minimumFractionDigits: 0 }).format(amount);
-    };
+        // Process ALL transactions to calculate current balance
+        allTransactions.forEach(transaction => {
+            transaction.entries?.forEach(entry => {
+                const account = accounts.find(a => a.id === entry.accountId);
+                if (account) {
+                    // Debit increases, Credit decreases for cash/bank accounts
+                    const amount = entry.type === 'debit' ? entry.amount : -entry.amount;
+
+                    if (account.type === AccountType.CASH) {
+                        cash += amount;
+                    } else if (account.type === AccountType.BANK) {
+                        bank += amount;
+                    }
+                }
+            });
+        });
+
+        // Store in cache for quick access
+        setBalancesCache({ cash, bank });
+
+        return { totalCashBalance: cash, totalBankBalance: bank };
+    }, [accounts, allTransactions]);
 
     const totalSales = dailyTransactions.filter(t => t.type === TransactionType.SALE).reduce((sum, t) => sum + t.totalAmount, 0);
     const totalPurchases = dailyTransactions.filter(t => t.type === TransactionType.PURCHASE).reduce((sum, t) => sum + t.totalAmount, 0);
     const totalExpenses = dailyTransactions.filter(t => t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.totalAmount, 0);
     const profit = totalSales - totalPurchases - totalExpenses;
 
+    const handleShopChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        if (!shops || !onSelectShop) return;
+        const shopId = event.target.value;
+        const selectedShop = shops.find(s => s.id === shopId);
+        if (selectedShop) {
+            onSelectShop(selectedShop);
+        }
+    };
+
+    const activeShops = shops?.filter(s => s.isActive) || [];
+
     return (
         <div className="space-y-6">
-            <div className="flex overflow-x-auto gap-6 pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {/* Shop Selector for Admin */}
+            {user?.role === 'admin' && activeShop && shops && onSelectShop && (
+                <div className="bg-surface p-4 rounded-lg shadow-md">
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                        اختر المحل
+                    </label>
+                    <div className="relative">
+                        <select
+                            value={activeShop.id}
+                            onChange={handleShopChange}
+                            className="w-full bg-background border border-gray-600 rounded-lg py-3 px-4 text-text-primary focus:ring-primary focus:border-primary appearance-none pr-10"
+                            aria-label="Select Shop"
+                        >
+                            {activeShops.map(shop => (
+                                <option key={shop.id} value={shop.id}>{shop.name}</option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-gray-400">
+                            <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex overflow-x-auto gap-6 pb-4 custom-scrollbar">
                 <div className="flex-shrink-0 w-72">
                     <StatCard title="إجمالي رصيد الصندوق" value={formatCurrency(totalCashBalance)} icon={<CashIcon />} />
                 </div>
@@ -157,14 +206,40 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, accounts, onAddTran
                     <StatCard title="ربح اليوم" value={formatCurrency(profit)} icon={<ProfitIcon />} />
                 </div>
             </div>
+            <style jsx>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    height: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: #1f2937;
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #4b5563;
+                    border-radius: 10px;
+                    border: 2px solid #1f2937;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #6b7280;
+                }
+                .custom-scrollbar {
+                    scrollbar-width: thin;
+                    scrollbar-color: #4b5563 #1f2937;
+                }
+            `}</style>
 
             <DateNavigator selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
 
-            <RecentTransactions 
-                transactions={dailyTransactions} 
-                accounts={accounts} 
+            <RecentTransactions
+                transactions={dailyTransactions}
+                allTransactions={allTransactions}
+                accounts={accounts}
                 onDelete={onDeleteTransaction}
                 onStartEdit={handleStartEdit}
+                activeShop={activeShop}
+                selectedDate={selectedDate}
+                onAddLog={onAddLog}
+                user={user}
             />
 
             <button
@@ -179,10 +254,38 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, accounts, onAddTran
             <DailyEntryForm
                 isOpen={isEntryModalOpen}
                 onClose={handleCloseModal}
-                onAddTransaction={onAddTransaction} 
-                onUpdateTransaction={onUpdateTransaction}
+                onAddTransaction={async (transaction) => {
+                    // Store old balances
+                    const oldBalances = { ...balancesCache };
+
+                    // Add the transaction
+                    await onAddTransaction(transaction);
+
+                    // Log balance changes if significant
+                    if (onAddLog && (Math.abs(balancesCache.cash - oldBalances.cash) > 0.01 || Math.abs(balancesCache.bank - oldBalances.bank) > 0.01)) {
+                        await onAddLog(
+                            LogType.BALANCE_CHANGE,
+                            `Balance updated - Cash: ${formatCurrency(balancesCache.cash)}, Bank: ${formatCurrency(balancesCache.bank)}`
+                        );
+                    }
+                }}
+                onUpdateTransaction={async (transaction) => {
+                    // Store old balances
+                    const oldBalances = { ...balancesCache };
+
+                    // Update the transaction
+                    await onUpdateTransaction(transaction);
+
+                    // Log balance changes if significant
+                    if (onAddLog && (Math.abs(balancesCache.cash - oldBalances.cash) > 0.01 || Math.abs(balancesCache.bank - oldBalances.bank) > 0.01)) {
+                        await onAddLog(
+                            LogType.BALANCE_CHANGE,
+                            `Balance updated after edit - Cash: ${formatCurrency(balancesCache.cash)}, Bank: ${formatCurrency(balancesCache.bank)}`
+                        );
+                    }
+                }}
                 transactionToEdit={editingTransaction}
-                accounts={accounts.filter(a => a.isActive)} 
+                accounts={accounts.filter(a => a.isActive)}
                 openFinancialYear={openFinancialYear}
                 onAddAccount={onAddAccount}
                 selectedDate={selectedDate}

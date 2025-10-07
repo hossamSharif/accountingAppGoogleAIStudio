@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Firebase Auth</title>
+</head>
+<body>
+    <h1>Firebase Auth Test</h1>
+    <p>Open the browser console to see results</p>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC9PglQejrYi41ZShGj__FiAd3oxyfbRO0",
+            authDomain: "vavidiaapp.firebaseapp.com",
+            projectId: "vavidiaapp",
+            storageBucket: "vavidiaapp.firebasestorage.app",
+            messagingSenderId: "646948750836",
+            appId: "1:646948750836:web:549bf4bdcdf380dac5a5a1",
+            measurementId: "G-69J0441627"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        console.log('Firebase initialized:', app);
+        console.log('Auth instance:', auth);
+
+        // Test authentication
+        async function testAuth() {
+            try {
+                const result = await signInWithEmailAndPassword(auth, "admin@accounting-app.com", "Admin123!");
+                console.log('Auth success:', result);
+            } catch (error) {
+                console.error('Auth error:', error);
+            }
+        }
+
+        testAuth();
+    </script>
+</body>
+</html>

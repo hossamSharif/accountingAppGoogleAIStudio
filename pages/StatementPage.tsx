@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Account, Transaction, Shop, TransactionType } from '../types';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { formatCurrency } from '../utils/formatting';
+import { exportTableToPDFEnhanced } from '../utils/pdfExportEnhanced';
 
 const ExportIcon = () => <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>;
 
@@ -10,10 +10,6 @@ interface StatementPageProps {
     transactions: Transaction[];
     activeShop: Shop | null;
 }
-
-const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ar-SD', { style: 'currency', currency: 'SDG', minimumFractionDigits: 2 }).format(amount);
-};
 
 const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, activeShop }) => {
     const [selectedAccountId, setSelectedAccountId] = useState<string>('');
@@ -131,49 +127,59 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
 
     }, [selectedAccountId, filterType, singleDate, startDate, endDate, accounts, transactions]);
 
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         if (!statementData || !selectedAccountId) return;
-        
-        const doc = new jsPDF();
-        const font = 'Tajawal';
-        const account = accounts.find(a => a.id === selectedAccountId);
-        
-        doc.setFont(font, 'bold');
-        doc.setFontSize(18);
-        doc.text(`كشف حساب: ${account?.name || ''}`, 105, 15, { align: 'center' });
-        doc.setFont(font, 'normal');
-        doc.setFontSize(12);
-        const dateRange = filterType === 'day' 
-            ? new Date(singleDate).toLocaleDateString('ar-EG')
-            : `من ${new Date(startDate).toLocaleDateString('ar-EG')} إلى ${new Date(endDate).toLocaleDateString('ar-EG')}`;
-        doc.text(`للفترة: ${dateRange}`, 105, 22, { align: 'center' });
-        if(activeShop) doc.text(`متجر: ${activeShop.name}`, 200, 22, { align: 'right' });
 
-        doc.setFontSize(11);
-        doc.text(`الرصيد الافتتاحي: ${formatCurrency(statementData.openingBalance)}`, 200, 35, { align: 'right' });
-        doc.text(`إجمالي مدين: ${formatCurrency(statementData.totalDebit)}`, 200, 42, { align: 'right' });
-        doc.text(`إجمالي دائن: ${formatCurrency(statementData.totalCredit)}`, 200, 49, { align: 'right' });
-        doc.setFont(font, 'bold');
-        doc.text(`الرصيد الختامي: ${formatCurrency(statementData.closingBalance)}`, 200, 56, { align: 'right' });
+        try {
+            const account = accounts.find(a => a.id === selectedAccountId);
 
-        const tableData = statementData.rows.map(row => [
-            formatCurrency(row.balance),
-            formatCurrency(row.credit),
-            formatCurrency(row.debit),
-            row.context,
-            row.date,
-        ]);
+            // Prepare headers
+            const headers = ['الرصيد', 'دائن', 'مدين', 'البيان', 'التاريخ'];
 
-        autoTable(doc, {
-            startY: 65,
-            head: [['الرصيد', 'دائن', 'مدين', 'البيان', 'التاريخ']],
-            body: tableData,
-            theme: 'grid',
-            styles: { font: font, fontStyle: 'normal', halign: 'right' },
-            headStyles: { font: font, fontStyle: 'bold', fillColor: [13, 148, 136], halign: 'right' },
-        });
+            // Prepare data
+            const tableData = statementData.rows.map(row => [
+                formatCurrency(row.balance),
+                formatCurrency(row.credit),
+                formatCurrency(row.debit),
+                row.context,
+                row.date,
+            ]);
 
-        doc.save(`statement_${account?.name}_${new Date().toISOString().split('T')[0]}.pdf`);
+            // Title
+            const title = `كشف حساب: ${account?.name || ''}`;
+
+            // Date range
+            const dateRange = filterType === 'day'
+                ? new Date(singleDate).toLocaleDateString('ar-SA')
+                : `من ${new Date(startDate).toLocaleDateString('ar-SA')} إلى ${new Date(endDate).toLocaleDateString('ar-SA')}`;
+
+            // Subtitle
+            const subtitle = activeShop ? `${activeShop.name} - ${dateRange}` : dateRange;
+
+            // Summary data
+            const summary = [
+                { label: 'الرصيد الافتتاحي', value: formatCurrency(statementData.openingBalance) },
+                { label: 'إجمالي مدين', value: formatCurrency(statementData.totalDebit) },
+                { label: 'إجمالي دائن', value: formatCurrency(statementData.totalCredit) },
+                { label: 'الرصيد الختامي', value: formatCurrency(statementData.closingBalance) }
+            ];
+
+            // Export to PDF using the enhanced method with Arabic support
+            await exportTableToPDFEnhanced(
+                headers,
+                tableData,
+                title,
+                `statement_${account?.name}_${new Date().toISOString().split('T')[0]}.pdf`,
+                {
+                    subtitle,
+                    summary,
+                    orientation: 'portrait'
+                }
+            );
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('حدث خطأ أثناء تصدير كشف الحساب');
+        }
     };
 
     return (

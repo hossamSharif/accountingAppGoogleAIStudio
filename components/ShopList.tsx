@@ -19,9 +19,10 @@ interface ShopListProps {
     onEdit: (shop: Shop) => void;
     onToggleStatus: (shopId: string) => void;
     onViewAccounts: (shop: Shop) => void;
+    isLoading?: boolean;
 }
 
-const ShopList: React.FC<ShopListProps> = ({ shops, onEdit, onToggleStatus, onViewAccounts }) => {
+const ShopList: React.FC<ShopListProps> = ({ shops, onEdit, onToggleStatus, onViewAccounts, isLoading = false }) => {
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-right">
@@ -44,13 +45,31 @@ const ShopList: React.FC<ShopListProps> = ({ shops, onEdit, onToggleStatus, onVi
                                 </span>
                             </td>
                             <td className="p-3 text-left">
-                                 <button onClick={() => onViewAccounts(shop)} className="text-primary hover:text-teal-400 p-2 transition-colors duration-200" title={`عرض حسابات ${shop.name}`} aria-label={`عرض حسابات ${shop.name}`}>
+                                <button
+                                    onClick={() => onViewAccounts(shop)}
+                                    disabled={isLoading}
+                                    className="text-primary hover:text-teal-400 p-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title={`عرض حسابات ${shop.name}`}
+                                    aria-label={`عرض حسابات ${shop.name}`}
+                                >
                                     <AccountsIcon />
                                 </button>
-                                <button onClick={() => onEdit(shop)} className="text-accent hover:text-blue-400 p-2 transition-colors duration-200" title={`تعديل ${shop.name}`} aria-label={`تعديل ${shop.name}`}>
+                                <button
+                                    onClick={() => onEdit(shop)}
+                                    disabled={isLoading}
+                                    className="text-accent hover:text-blue-400 p-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title={`تعديل ${shop.name}`}
+                                    aria-label={`تعديل ${shop.name}`}
+                                >
                                     <EditIcon />
                                 </button>
-                                <button onClick={() => onToggleStatus(shop.id)} className={`p-2 mr-2 transition-colors duration-200 ${shop.isActive ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`} title={`${shop.isActive ? 'إلغاء تفعيل' : 'تفعيل'} ${shop.name}`} aria-label={`${shop.isActive ? 'إلغاء تفعيل' : 'تفعيل'} ${shop.name}`}>
+                                <button
+                                    onClick={() => onToggleStatus(shop.id)}
+                                    disabled={isLoading}
+                                    className={`p-2 mr-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${shop.isActive ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`}
+                                    title={`${shop.isActive ? 'إلغاء تفعيل' : 'تفعيل'} ${shop.name}`}
+                                    aria-label={`${shop.isActive ? 'إلغاء تفعيل' : 'تفعيل'} ${shop.name}`}
+                                >
                                     {shop.isActive ? <ToggleOffIcon /> : <ToggleOnIcon />}
                                 </button>
                             </td>

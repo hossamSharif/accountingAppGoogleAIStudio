@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import { signInWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
+import { getAuthErrorMessage } from '../utils/authErrorHandler';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
 
 interface LoginPageProps {
@@ -15,8 +19,8 @@ const UserIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" stroke
 const LockIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>;
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
-    const [email, setEmail] = useState('user@example.com');
-    const [password, setPassword] = useState('user');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
@@ -25,12 +29,69 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
-        const result = await onLogin(email, password);
-        if (result !== true) {
-            setError(result);
+
+        try {
+            // Basic validation
+            if (!email.trim() || !password.trim()) {
+                setError('يرجى ملء جميع الحقول');
+                setIsLoading(false);
+                return;
+            }
+
+            // 1. Authenticate with Firebase
+            const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+
+            // 2. Skip email verification for development
+            // TODO: Re-enable email verification in production
+            // if (!userCredential.user.emailVerified) {
+            //     setError('يرجى تفعيل البريد الإلكتروني أولاً');
+            //     await signOut(auth);
+            //     setIsLoading(false);
+            //     return;
+            // }
+
+            // 3. Check if user exists in Firestore and is active
+            const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+            if (!userDoc.exists()) {
+                setError('المستخدم غير مسجل في النظام');
+                await signOut(auth);
+                setIsLoading(false);
+                return;
+            }
+
+            const userData = userDoc.data();
+            if (!userData.isActive) {
+                setError('تم تعطيل هذا الحساب. يرجى الاتصال بالمسؤول');
+                await signOut(auth);
+                setIsLoading(false);
+                return;
+            }
+
+            // 4. Success - App.tsx will handle the rest via onAuthStateChanged
+
+        } catch (error: any) {
+            setError(getAuthErrorMessage(error.code));
+            setIsLoading(false);
         }
-        // On success, the onAuthStateChanged listener in App.tsx will handle the view change.
-        setIsLoading(false);
+    };
+
+    const handleResendVerification = async () => {
+        if (!email.trim()) {
+            setError('يرجى إدخال البريد الإلكتروني أولاً');
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+            await sendEmailVerification(userCredential.user);
+            await signOut(auth);
+            setError('تم إرسال رابط التفعيل إلى بريدك الإلكتروني');
+        } catch (error: any) {
+            setError('فشل في إرسال رابط التفعيل');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -54,8 +115,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="البريد الإلكتروني"
-                                    className="w-full bg-background border border-gray-600 rounded-md p-3 pr-10 text-text-primary focus:ring-primary focus:border-primary placeholder-gray-500 text-left"
+                                    className="w-full bg-background border border-gray-600 rounded-md p-3 pr-10 text-text-primary focus:ring-primary focus:border-primary placeholder-gray-500 text-left disabled:opacity-50"
                                     required
+                                    disabled={isLoading}
                                 />
                             </div>
                             <div className="relative">
@@ -67,23 +129,46 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="كلمة المرور"
-                                    className="w-full bg-background border border-gray-600 rounded-md p-3 pr-10 text-text-primary focus:ring-primary focus:border-primary placeholder-gray-500 text-left"
+                                    className="w-full bg-background border border-gray-600 rounded-md p-3 pr-10 text-text-primary focus:ring-primary focus:border-primary placeholder-gray-500 text-left disabled:opacity-50"
                                     required
+                                    disabled={isLoading}
                                 />
                             </div>
-                            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                            {error && (
+                                <div className="text-red-500 text-sm text-center space-y-2">
+                                    <p>{error}</p>
+                                    {error.includes('تفعيل البريد') && (
+                                        <button
+                                            type="button"
+                                            onClick={handleResendVerification}
+                                            className="text-blue-400 hover:underline text-xs"
+                                            disabled={isLoading}
+                                        >
+                                            إعادة إرسال رابط التفعيل
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                             <div>
                                 <button
                                     type="submit"
                                     disabled={isLoading}
                                     className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg transition duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-wait"
                                 >
-                                    {isLoading ? 'جار التسجيل...' : 'تسجيل الدخول'}
+                                    {isLoading ? (
+                                        <div className="flex items-center justify-center">
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                            جار التسجيل...
+                                        </div>
+                                    ) : (
+                                        'تسجيل الدخول'
+                                    )}
                                 </button>
                             </div>
                         </form>
+
                          <div className="text-center mt-4">
-                            <button 
+                            <button
                                 onClick={() => setIsForgotPasswordOpen(true)}
                                 className="text-sm text-accent hover:underline focus:outline-none"
                             >
@@ -92,7 +177,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                         </div>
                     </div>
                     <div className="text-center mt-6 text-sm text-text-secondary">
-                        <p>Admin: admin@example.com / admin</p>
+                        <p>Admin: admin@accounting-app.com / Admin123!</p>
                         <p>User: user@example.com / user</p>
                     </div>
                 </div>

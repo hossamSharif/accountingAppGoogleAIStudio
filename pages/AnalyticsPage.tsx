@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Account, Transaction, AccountType, TransactionType, Shop, FinancialYear } from '../types';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import StatCard from '../components/StatCard';
+import { formatCurrency, formatNumber } from '../utils/formatting';
 
 const CashIcon = () => <svg className="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const BankIcon = () => <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h16V4m-8 12v-5m-4 5v-5m8 5v-5M3 10h18v9a2 2 0 01-2 2H5a2 2 0 01-2-2v-9z" /></svg>;
@@ -10,6 +11,7 @@ const CreditCardIcon = () => <svg className="w-8 h-8 text-red-400" fill="none" s
 const DebtorsIcon = () => <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20v-2m0 2a2 2 0 100 4m0-4h-3m-6 0a2 2 0 100 4 2 2 0 000-4zm-7 1a2 2 0 11-4 0 2 2 0 014 0z"/></svg>;
 const CreditorsIcon = () => <svg className="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const ProfitIcon = () => <svg className="w-8 h-8 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>;
+const IncomeIcon = () => <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 
 
 const PIE_COLORS = ['#0D9488', '#F97316', '#3B82F6', '#EF4444', '#8B5CF6', '#F59E0B', '#10B981', '#6366F1'];
@@ -22,8 +24,6 @@ interface AnalyticsPageProps {
     transactions: Transaction[];
     financialYears: FinancialYear[];
 }
-
-const formatCurrency = (amount: number) => new Intl.NumberFormat('ar-SD', { style: 'currency', currency: 'SDG', minimumFractionDigits: 0 }).format(amount);
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -146,10 +146,10 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
         const totalSales = filteredTransactions.filter(t => t.type === TransactionType.SALE).reduce((sum, t) => sum + t.totalAmount, 0);
         const totalPurchases = filteredTransactions.filter(t => t.type === TransactionType.PURCHASE).reduce((sum, t) => sum + t.totalAmount, 0);
         const totalExpenses = filteredTransactions.filter(t => t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.totalAmount, 0);
-        
+
         let profit = 0;
         const selectedFy = shopFinancialYears.find(fy => fy.id === selectedFyId);
-        
+
         if (selectedFy) {
             const { openingStockValue, closingStockValue } = selectedFy;
             if (closingStockValue !== undefined && closingStockValue !== null) { // Closed year
@@ -161,7 +161,9 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
             profit = totalSales - totalPurchases - totalExpenses;
         }
 
-        return { cash, bank, debtors, creditors: -creditors, totalExpenses, profit };
+        const totalIncome = totalSales; // Total income is total sales
+
+        return { cash, bank, debtors, creditors: -creditors, totalExpenses, profit, totalIncome, totalSales, totalPurchases };
     }, [shopFilteredAccounts, shopFilteredTransactions, filteredTransactions, shopFinancialYears, selectedFyId]);
     
     const profitCardMeta = useMemo(() => {
@@ -177,7 +179,7 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
 
     const chartData = useMemo(() => {
         const monthlyData: { [key: string]: { sales: number, purchases: number, expenses: number } } = {};
-        
+
         filteredTransactions.forEach(t => {
             const monthKey = new Date(t.date).toLocaleString('ar-EG', { month: 'short', year: 'numeric' });
             if (!monthlyData[monthKey]) {
@@ -187,7 +189,7 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
             if (t.type === TransactionType.PURCHASE) monthlyData[monthKey].purchases += t.totalAmount;
             if (t.type === TransactionType.EXPENSE) monthlyData[monthKey].expenses += t.totalAmount;
         });
-        
+
         const sortedKeys = Object.keys(monthlyData).sort((a,b) => {
             const [aMonthStr, aYearStr] = a.split(' ');
             const [bMonthStr, bYearStr] = b.split(' ');
@@ -201,6 +203,44 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
             month: key,
             ...monthlyData[key]
         }));
+    }, [filteredTransactions]);
+
+    const incomeChartData = useMemo(() => {
+        const monthlyIncomeData: { [key: string]: { income: number, profit: number } } = {};
+
+        filteredTransactions.forEach(t => {
+            const monthKey = new Date(t.date).toLocaleString('ar-EG', { month: 'short', year: 'numeric' });
+            if (!monthlyIncomeData[monthKey]) {
+                monthlyIncomeData[monthKey] = { income: 0, profit: 0 };
+            }
+            if (t.type === TransactionType.SALE) {
+                monthlyIncomeData[monthKey].income += t.totalAmount;
+            }
+            if (t.type === TransactionType.PURCHASE) {
+                monthlyIncomeData[monthKey].profit -= t.totalAmount;
+            }
+            if (t.type === TransactionType.EXPENSE) {
+                monthlyIncomeData[monthKey].profit -= t.totalAmount;
+            }
+        });
+
+        const sortedKeys = Object.keys(monthlyIncomeData).sort((a,b) => {
+            const [aMonthStr, aYearStr] = a.split(' ');
+            const [bMonthStr, bYearStr] = b.split(' ');
+            const monthMap: {[key: string]: number} = {'يناير': 1,'فبراير': 2,'مارس': 3,'أبريل': 4,'مايو': 5,'يونيو': 6,'يوليو': 7,'أغسطس': 8,'سبتمبر': 9,'أكتوبر': 10,'نوفمبر': 11,'ديسمبر': 12};
+            const dateA = new Date(parseInt(aYearStr), monthMap[aMonthStr] - 1);
+            const dateB = new Date(parseInt(bYearStr), monthMap[bMonthStr] - 1);
+            return dateA.getTime() - dateB.getTime();
+        });
+
+        return sortedKeys.map(key => {
+            const data = monthlyIncomeData[key];
+            return {
+                month: key,
+                income: data.income,
+                profit: data.income + data.profit
+            };
+        });
     }, [filteredTransactions]);
 
     const expenseBreakdownData = useMemo(() => {
@@ -272,27 +312,76 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
             
             {/* KPIs */}
             <div className="flex overflow-x-auto gap-6 pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <div className="flex-shrink-0 w-72"><StatCard title="إجمالي الدخل" value={formatCurrency(kpiData.totalIncome)} icon={<IncomeIcon />} /></div>
                 <div className="flex-shrink-0 w-72"><StatCard title={profitCardMeta.title} value={formatCurrency(kpiData.profit)} icon={<ProfitIcon />} /></div>
-                <div className="flex-shrink-0 w-72"><StatCard title="إجمالي رصيد الصندوق" value={formatCurrency(kpiData.cash)} icon={<CashIcon />} /></div>
-                <div className="flex-shrink-0 w-72"><StatCard title="إجمالي رصيد البنك" value={formatCurrency(kpiData.bank)} icon={<BankIcon />} /></div>
+                <div className="flex-shrink-0 w-72"><StatCard title="إجمالي المبيعات" value={formatCurrency(kpiData.totalSales)} icon={<CashIcon />} /></div>
+                <div className="flex-shrink-0 w-72"><StatCard title="إجمالي المشتريات" value={formatCurrency(kpiData.totalPurchases)} icon={<BankIcon />} /></div>
                 <div className="flex-shrink-0 w-72"><StatCard title="إجمالي المصروفات" value={formatCurrency(kpiData.totalExpenses)} icon={<CreditCardIcon />} /></div>
                 <div className="flex-shrink-0 w-72"><StatCard title="إجمالي رصيد العملاء" value={formatCurrency(kpiData.debtors)} icon={<DebtorsIcon />} /></div>
                 <div className="flex-shrink-0 w-72"><StatCard title="إجمالي رصيد الموردين" value={formatCurrency(kpiData.creditors)} icon={<CreditorsIcon />} /></div>
             </div>
 
+            {/* Income Trend Chart */}
+            <div className="bg-surface p-6 rounded-lg shadow-lg">
+                <h3 className="text-xl font-bold mb-4">منحنى الدخل والربح</h3>
+                {incomeChartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                        <AreaChart data={incomeChartData} margin={{ top: 10, right: 20, left: -10, bottom: 5 }}>
+                            <defs>
+                                <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.1}/>
+                                </linearGradient>
+                                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#0D9488" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#0D9488" stopOpacity={0.1}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                            <XAxis dataKey="month" stroke="#9CA3AF" />
+                            <YAxis stroke="#9CA3AF" tickFormatter={value => formatNumber(value as number, 0)} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend wrapperStyle={{ direction: 'ltr' }} />
+                            <Area
+                                type="monotone"
+                                name="الدخل"
+                                dataKey="income"
+                                stroke="#10B981"
+                                fillOpacity={1}
+                                fill="url(#colorIncome)"
+                                strokeWidth={3}
+                            />
+                            <Area
+                                type="monotone"
+                                name="صافي الربح"
+                                dataKey="profit"
+                                stroke="#0D9488"
+                                fillOpacity={1}
+                                fill="url(#colorProfit)"
+                                strokeWidth={2}
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="flex items-center justify-center h-64 text-text-secondary">
+                        <p>لا توجد بيانات دخل لعرضها في الفترة المحددة.</p>
+                    </div>
+                )}
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                  <div className="lg:col-span-3 bg-surface p-6 rounded-lg shadow-lg">
-                    <h3 className="text-xl font-bold mb-4">الأداء الشهري (إجمالي)</h3>
+                    <h3 className="text-xl font-bold mb-4">المبيعات والمشتريات والمصروفات</h3>
                     <ResponsiveContainer width="100%" height={400}>
                         <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                             <XAxis dataKey="month" stroke="#9CA3AF" />
-                            <YAxis stroke="#9CA3AF" tickFormatter={value => new Intl.NumberFormat('ar-EG').format(value as number)}/>
+                            <YAxis stroke="#9CA3AF" tickFormatter={value => formatNumber(value as number, 0)}/>
                             <Tooltip content={<CustomTooltip />} />
                             <Legend wrapperStyle={{ direction: 'ltr' }}/>
-                            <Bar name="المصروفات" dataKey="expenses" fill="#EF4444" radius={[4, 4, 0, 0]} />
-                            <Bar name="المشتريات" dataKey="purchases" fill="#F97316" radius={[4, 4, 0, 0]} />
                             <Bar name="المبيعات" dataKey="sales" fill="#0D9488" radius={[4, 4, 0, 0]} />
+                            <Bar name="المشتريات" dataKey="purchases" fill="#F97316" radius={[4, 4, 0, 0]} />
+                            <Bar name="المصروفات" dataKey="expenses" fill="#EF4444" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>

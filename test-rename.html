@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار إعادة تسمية الحسابات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-2xl font-bold text-gray-900 mb-6">أداة إعادة تسمية الحسابات</h1>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h2 class="text-lg font-medium text-blue-800 mb-2">ما تقوم به هذه الأداة:</h2>
+                <ul class="text-blue-700 space-y-1">
+                    <li>• إضافة اسم المتجر كلاحقة لجميع أسماء الحسابات</li>
+                    <li>• مثال: "المصروفات" ← "المصروفات-قرش-الحصايا"</li>
+                    <li>• تحديث أسماء الحسابات فقط (الرموز تبقى كما هي)</li>
+                    <li>• تجاهل الحسابات التي تحتوي بالفعل على لاحقة المتجر</li>
+                </ul>
+            </div>
+
+            <div class="flex space-x-4 space-x-reverse mb-6">
+                <button id="dryRunBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                    تشغيل تحليل (اختبار جاف)
+                </button>
+
+                <button id="executeBtn" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 opacity-50" disabled>
+                    تنفيذ إعادة التسمية
+                </button>
+            </div>
+
+            <div id="results" class="hidden bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                <h3 class="text-lg font-medium text-gray-800 mb-2">نتائج التحليل:</h3>
+                <div id="resultsContent"></div>
+            </div>
+
+            <div id="logs" class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h3 class="text-lg font-medium text-gray-800 mb-2">سجل التنفيذ:</h3>
+                <div id="logsContent" class="max-h-96 overflow-y-auto font-mono text-sm"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase imports would go here
+        // For now, this is just a UI mockup
+
+        let logs = [];
+
+        function addLog(message) {
+            const now = new Date().toLocaleTimeString();
+            logs.push(`${now}: ${message}`);
+            updateLogsDisplay();
+        }
+
+        function updateLogsDisplay() {
+            const logsContent = document.getElementById('logsContent');
+            logsContent.innerHTML = logs.map(log => `<div>${log}</div>`).join('');
+        }
+
+        function simulateDryRun() {
+            addLog('بدء تحليل إعادة تسمية الحسابات...');
+            addLog('جلب جميع المتاجر...');
+
+            setTimeout(() => {
+                addLog('تم العثور على 3 متاجر');
+                addLog('جلب جميع الحسابات...');
+
+                setTimeout(() => {
+                    addLog('تم العثور على 45 حساب');
+                    addLog('تحليل ما سيتم تغييره...');
+
+                    setTimeout(() => {
+                        addLog('📝 سيتم إعادة تسمية: "المصروفات" ← "المصروفات-قرش-الحصايا"');
+                        addLog('📝 سيتم إعادة تسمية: "المبيعات" ← "المبيعات-قرش-الحصايا"');
+                        addLog('📝 سيتم إعادة تسمية: "المشتريات" ← "المشتريات-قرش-الحصايا"');
+                        addLog('⏭️ تجاهل: "الصندوق-قرش-الحصايا" (يحتوي بالفعل على اللاحقة)');
+                        addLog('تم الانتهاء من تحليل الاختبار الجاف');
+
+                        // Show results
+                        const results = document.getElementById('results');
+                        const resultsContent = document.getElementById('resultsContent');
+                        resultsContent.innerHTML = `
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>إجمالي الحسابات: 45</div>
+                                <div>سيتم التحديث: 30</div>
+                                <div>سيتم التجاهل: 15</div>
+                                <div>حسابات يتيمة: 0</div>
+                            </div>
+                            <p class="text-green-600 mt-2">✅ جاهز لتنفيذ إعادة التسمية</p>
+                        `;
+                        results.classList.remove('hidden');
+
+                        // Enable execute button
+                        const executeBtn = document.getElementById('executeBtn');
+                        executeBtn.disabled = false;
+                        executeBtn.classList.remove('opacity-50');
+                    }, 1000);
+                }, 500);
+            }, 500);
+        }
+
+        function simulateExecution() {
+            if (!confirm('هل أنت متأكد من رغبتك في إعادة تسمية جميع الحسابات؟ لا يمكن التراجع عن هذا الإجراء.')) {
+                return;
+            }
+
+            addLog('بدء تنفيذ إعادة تسمية الحسابات...');
+            addLog('🔄 إعادة تسمية: "المصروفات" ← "المصروفات-قرش-الحصايا"');
+
+            setTimeout(() => {
+                addLog('🔄 إعادة تسمية: "المبيعات" ← "المبيعات-قرش-الحصايا"');
+                setTimeout(() => {
+                    addLog('🔄 إعادة تسمية: "المشتريات" ← "المشتريات-قرش-الحصايا"');
+                    setTimeout(() => {
+                        addLog('💾 حفظ مجموعة من 500 تحديث...');
+                        setTimeout(() => {
+                            addLog('🎉 تم الانتهاء من إعادة تسمية الحسابات بنجاح!');
+                            addLog('📊 إجمالي الحسابات المُحدَّثة: 30');
+                        }, 500);
+                    }, 300);
+                }, 300);
+            }, 300);
+        }
+
+        document.getElementById('dryRunBtn').addEventListener('click', simulateDryRun);
+        document.getElementById('executeBtn').addEventListener('click', simulateExecution);
+
+        // Initialize
+        addLog('أداة إعادة تسمية الحسابات جاهزة');
+    </script>
+</body>
+</html>

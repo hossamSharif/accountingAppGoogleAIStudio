@@ -5,6 +5,31 @@ const CloseIcon = () => (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
 );
 
+// Transaction type icons
+const SaleIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+);
+
+const PurchaseIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+);
+
+const ExpenseIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+);
+
+const CustomerPaymentIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+);
+
+const SupplierPaymentIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+);
+
+const TransferIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+);
+
 // New type to handle the UI-specific entry modes
 type FormMode = TransactionType | 'Customer Payment' | 'Supplier Payment';
 
@@ -32,7 +57,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
     const [totalAmount, setTotalAmount] = useState('');
     const [paidAmount, setPaidAmount] = useState('');
     const [categoryId, setCategoryId] = useState('');
-    const [partyId, setPartyId] = useState<string | 'cash'>('cash');
+    const [partyId, setPartyId] = useState<string>('');
     const [paymentAccountId, setPaymentAccountId] = useState('');
     
     // State for internal transfers
@@ -45,6 +70,10 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
     // State for adding new customer/supplier on the fly
     const [isAddingParty, setIsAddingParty] = useState(false);
     const [newPartyName, setNewPartyName] = useState('');
+
+    // State for adding new category accounts (sales/purchase/expense sub-accounts)
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
 
     const { isFormDisabled, disabledMessage } = useMemo(() => {
         if (!openFinancialYear) {
@@ -70,6 +99,10 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
         supplierAccounts,
     } = useMemo(() => {
         const leafAccounts = accounts.filter(acc => acc.isActive || (isEditMode && transactionToEdit.entries.some(e => e.accountId === acc.id)));
+
+        // Filter to get only sub-accounts (accounts that have a parentId)
+        const subAccountsOnly = leafAccounts.filter(a => a.parentId);
+
         const paymentAccs = leafAccounts.filter(a => a.type === AccountType.CASH || a.type === AccountType.BANK);
         let catAccounts: Account[] = [];
         let pAccounts: Account[] = [];
@@ -77,23 +110,28 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
         // This switch now depends on the `formMode` which could be a plain transaction type
         switch (formMode as TransactionType) {
             case TransactionType.SALE:
-                catAccounts = leafAccounts.filter(a => a.type === AccountType.SALES);
-                pAccounts = leafAccounts.filter(a => a.type === AccountType.CUSTOMER);
+                // For sales, show only sub-accounts of SALES type
+                catAccounts = subAccountsOnly.filter(a => a.type === AccountType.SALES);
+                // For customers, show only sub-accounts
+                pAccounts = subAccountsOnly.filter(a => a.type === AccountType.CUSTOMER);
                 break;
             case TransactionType.PURCHASE:
-                catAccounts = leafAccounts.filter(a => a.type === AccountType.PURCHASES);
-                pAccounts = leafAccounts.filter(a => a.type === AccountType.SUPPLIER);
+                // For purchases, show only sub-accounts of PURCHASES type
+                catAccounts = subAccountsOnly.filter(a => a.type === AccountType.PURCHASES);
+                // For suppliers, show only sub-accounts
+                pAccounts = subAccountsOnly.filter(a => a.type === AccountType.SUPPLIER);
                 break;
             case TransactionType.EXPENSE:
-                catAccounts = leafAccounts.filter(a => a.type === AccountType.EXPENSES);
+                // For expenses, show only sub-accounts of EXPENSES type
+                catAccounts = subAccountsOnly.filter(a => a.type === AccountType.EXPENSES);
                 break;
         }
-        return { 
-            categoryAccounts: catAccounts, 
-            partyAccounts: pAccounts, 
+        return {
+            categoryAccounts: catAccounts,
+            partyAccounts: pAccounts,
             paymentAccounts: paymentAccs,
-            customerAccounts: leafAccounts.filter(a => a.type === AccountType.CUSTOMER),
-            supplierAccounts: leafAccounts.filter(a => a.type === AccountType.SUPPLIER),
+            customerAccounts: subAccountsOnly.filter(a => a.type === AccountType.CUSTOMER),
+            supplierAccounts: subAccountsOnly.filter(a => a.type === AccountType.SUPPLIER),
         };
     }, [formMode, accounts, isEditMode, transactionToEdit]);
     
@@ -102,6 +140,8 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
         setError('');
         setIsAddingParty(false);
         setNewPartyName('');
+        setIsAddingCategory(false);
+        setNewCategoryName('');
         
         const cashAccount = paymentAccounts.find(a => a.type === AccountType.CASH);
         const bankAccount = paymentAccounts.find(a => a.type === AccountType.BANK);
@@ -135,7 +175,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                 setFormMode(transactionToEdit.type);
                 setTotalAmount(String(transactionToEdit.totalAmount));
                 setCategoryId(transactionToEdit.categoryId || '');
-                setPartyId(transactionToEdit.partyId || 'cash');
+                setPartyId(transactionToEdit.partyId || '');
                 const paymentAccTypes = [AccountType.CASH, AccountType.BANK];
                 const paymentAccIds = new Set(accounts.filter(a => paymentAccTypes.includes(a.type)).map(a => a.id));
                 const paymentEntry = transactionToEdit.entries.find(e => paymentAccIds.has(e.accountId));
@@ -145,7 +185,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
         } else {
             // Reset form for new entry
             setFormMode(TransactionType.SALE);
-            setTotalAmount(''); setPaidAmount(''); setDescription(''); setPartyId('cash');
+            setTotalAmount(''); setPaidAmount(''); setDescription(''); setPartyId('');
             setCategoryId(categoryAccounts[0]?.id || '');
             setPaymentAccountId(cashAccount?.id || paymentAccounts[0]?.id || '');
             setFromAccountId(cashAccount?.id || paymentAccounts[0]?.id || '');
@@ -158,9 +198,13 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
     useEffect(() => {
         if (isOpen && !isEditMode) {
             setError(''); setIsAddingParty(false); setNewPartyName('');
+            setIsAddingCategory(false); setNewCategoryName('');
             setTotalAmount(''); setPaidAmount(''); setDescription('');
-            if (formMode === TransactionType.SALE || formMode === TransactionType.PURCHASE || formMode === TransactionType.EXPENSE) {
-                setPartyId('cash');
+            if (formMode === TransactionType.SALE || formMode === TransactionType.PURCHASE) {
+                // Auto-select first account in customer/supplier field for sales/purchase
+                setPartyId(partyAccounts[0]?.id || '');
+                setCategoryId(categoryAccounts[0]?.id || '');
+            } else if (formMode === TransactionType.EXPENSE) {
                 setCategoryId(categoryAccounts[0]?.id || '');
             } else if (formMode === 'Customer Payment') {
                 setPaymentForm({ partyId: customerAccounts[0]?.id || '', paymentAccountId: paymentAccounts.find(a => a.type === AccountType.CASH)?.id || '', amount: '' });
@@ -168,14 +212,15 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                 setPaymentForm({ partyId: supplierAccounts[0]?.id || '', paymentAccountId: paymentAccounts.find(a => a.type === AccountType.CASH)?.id || '', amount: '' });
             }
         }
-    }, [formMode, isOpen, isEditMode, categoryAccounts, customerAccounts, supplierAccounts, paymentAccounts]);
+    }, [formMode, isOpen, isEditMode, categoryAccounts, customerAccounts, supplierAccounts, paymentAccounts, partyAccounts]);
 
 
     useEffect(() => {
-        if(isOpen && !isEditMode && formMode !== TransactionType.TRANSFER && partyId === 'cash') {
+        // Auto-fill paid amount with total amount for sales/purchase (cash by default)
+        if(isOpen && !isEditMode && (formMode === TransactionType.SALE || formMode === TransactionType.PURCHASE)) {
             setPaidAmount(totalAmount);
         }
-    }, [totalAmount, formMode, partyId, isOpen, isEditMode]);
+    }, [totalAmount, formMode, isOpen, isEditMode]);
 
     const handleAddNewParty = () => {
         if (!newPartyName.trim() || !onAddAccount) return;
@@ -185,11 +230,64 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
             setError(`لا يوجد حساب رئيسي لـ "${partyType}". يرجى إضافته من شجرة الحسابات.`);
             return;
         }
-        const newAccount = onAddAccount({ name: newPartyName.trim(), type: partyType, parentId: parentAccount.id });
+        const newAccount = onAddAccount({
+            name: newPartyName.trim(),
+            type: partyType,
+            parentId: parentAccount.id,
+            accountCode: `${parentAccount.accountCode}-${Date.now().toString().slice(-6)}`, // Generate unique code
+            classification: parentAccount.classification,
+            nature: parentAccount.nature
+        });
         if (newAccount) {
             setPartyId(newAccount.id);
             setIsAddingParty(false);
             setNewPartyName('');
+        }
+    };
+
+    const handleAddNewCategory = () => {
+        if (!newCategoryName.trim() || !onAddAccount) return;
+
+        let categoryType: AccountType;
+        let parentCode: string;
+
+        switch (formMode as TransactionType) {
+            case TransactionType.SALE:
+                categoryType = AccountType.SALES;
+                parentCode = '4100'; // Sales parent account
+                break;
+            case TransactionType.PURCHASE:
+                categoryType = AccountType.PURCHASES;
+                parentCode = '5100'; // Purchases parent account
+                break;
+            case TransactionType.EXPENSE:
+                categoryType = AccountType.EXPENSES;
+                parentCode = '5200'; // Expenses parent account
+                break;
+            default:
+                return;
+        }
+
+        const parentAccount = accounts.find(a => !a.parentId && a.accountCode === parentCode && a.type === categoryType);
+        if (!parentAccount) {
+            setError(`لا يوجد حساب رئيسي لـ "${categoryType}". يرجى إضافته من شجرة الحسابات.`);
+            return;
+        }
+
+        const newAccount = onAddAccount({
+            name: newCategoryName.trim(),
+            type: categoryType,
+            parentId: parentAccount.id,
+            accountCode: `${parentAccount.accountCode}-${Date.now().toString().slice(-6)}`, // Generate unique code
+            classification: parentAccount.classification,
+            nature: parentAccount.nature,
+            category: formMode === TransactionType.EXPENSE ? 'متنوعة' : undefined
+        });
+
+        if (newAccount) {
+            setCategoryId(newAccount.id);
+            setIsAddingCategory(false);
+            setNewCategoryName('');
         }
     };
 
@@ -236,25 +334,30 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
             if (!totalAmount || isNaN(totalNum) || totalNum <= 0 || !categoryId) { setError('الرجاء التأكد من إدخال مبلغ صحيح واختيار حساب الفئة.'); return; }
             if (isNaN(paidNum) || paidNum < 0 || paidNum > totalNum) { setError('المبلغ المدفوع يجب أن يكون رقماً صحيحاً بين 0 والمبلغ الإجمالي.'); return; }
             if (paidNum > 0 && !paymentAccountId) { setError('الرجاء اختيار حساب الدفع (الصندوق أو البنك).'); return; }
-            if (partyId !== 'cash' && !partyId) { setError(`الرجاء اختيار ${getPartyLabel()}.`); return; }
+
+            // If partyId is empty, it's a cash transaction
+            // If partyId has value, it's a credit transaction with a customer/supplier
 
             finalTotalAmount = totalNum;
             finalCategoryId = categoryId;
-            finalPartyId = partyId === 'cash' ? undefined : partyId;
             const remainingAmount = totalNum - paidNum;
 
             switch (formMode) {
                 case TransactionType.SALE:
+                    finalPartyId = partyId || undefined;
                     entries.push({ accountId: categoryId, amount: -totalNum });
                     if (paidNum > 0) entries.push({ accountId: paymentAccountId, amount: paidNum });
-                    if (remainingAmount > 0 && partyId !== 'cash') entries.push({ accountId: partyId, amount: remainingAmount });
+                    if (remainingAmount > 0 && partyId) entries.push({ accountId: partyId, amount: remainingAmount });
                     break;
                 case TransactionType.PURCHASE:
+                    finalPartyId = partyId || undefined;
                     entries.push({ accountId: categoryId, amount: totalNum });
                     if (paidNum > 0) entries.push({ accountId: paymentAccountId, amount: -paidNum });
-                    if (remainingAmount > 0 && partyId !== 'cash') entries.push({ accountId: partyId, amount: -remainingAmount });
+                    if (remainingAmount > 0 && partyId) entries.push({ accountId: partyId, amount: -remainingAmount });
                     break;
                 case TransactionType.EXPENSE:
+                    // Expenses don't have associated parties
+                    finalPartyId = undefined;
                     if(paidNum !== totalNum) { setError('في المصروفات، يجب أن يكون المبلغ المدفوع هو المبلغ الإجمالي.'); return; }
                     entries.push({ accountId: categoryId, amount: totalNum }, { accountId: paymentAccountId, amount: -totalNum });
                     break;
@@ -264,9 +367,30 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
         if (Math.abs(entries.reduce((s, en) => s + en.amount, 0)) > 0.001) { setError("خطأ في النظام: القيد غير متوازن."); return; }
         
         if (isEditMode) {
-            onUpdateTransaction({ ...transactionToEdit, type: finalType, description, entries, totalAmount: finalTotalAmount, categoryId: finalCategoryId, partyId: finalPartyId });
+            const updatedTransaction: Transaction = {
+                ...transactionToEdit,
+                type: finalType,
+                description,
+                entries,
+                totalAmount: finalTotalAmount
+            };
+            // Only add categoryId and partyId if they have valid values
+            if (finalCategoryId) updatedTransaction.categoryId = finalCategoryId;
+            if (finalPartyId) updatedTransaction.partyId = finalPartyId;
+
+            onUpdateTransaction(updatedTransaction);
         } else {
-            onAddTransaction({ type: finalType, description, entries, totalAmount: finalTotalAmount, categoryId: finalCategoryId, partyId: finalPartyId });
+            const newTransaction: Omit<Transaction, 'id' | 'shopId' | 'date'> = {
+                type: finalType,
+                description,
+                entries,
+                totalAmount: finalTotalAmount
+            };
+            // Only add categoryId and partyId if they have valid values
+            if (finalCategoryId) newTransaction.categoryId = finalCategoryId;
+            if (finalPartyId) newTransaction.partyId = finalPartyId;
+
+            onAddTransaction(newTransaction);
         }
         onClose();
     };
@@ -275,10 +399,103 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
 
     const renderTransactionFields = () => (
         <>
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">حساب الفئة</label><select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || categoryAccounts.length === 0} required><option value="" disabled>-- اختر حساب --</option>{categoryAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
-            {formMode !== TransactionType.EXPENSE && (isAddingParty ? (<div className="border border-gray-500 rounded-md p-3 space-y-2 bg-background/50"><label className="block text-sm font-medium text-text-secondary">اسم {getPartyLabel()} الجديد</label><input type="text" value={newPartyName} onChange={(e) => setNewPartyName(e.target.value)} placeholder={`أدخل اسم ${getPartyLabel()}`} className="w-full bg-background border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"/><div className="flex gap-2 justify-end pt-1"><button type="button" onClick={() => { setIsAddingParty(false); setNewPartyName('');}} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300">إلغاء</button><button type="button" onClick={handleAddNewParty} className="bg-primary hover:bg-primary-dark text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300">حفظ</button></div></div>) : (<div><label className="block text-sm font-medium text-text-secondary mb-1">{getPartyLabel()}</label><div className="flex items-center gap-2"><select value={partyId} onChange={(e) => setPartyId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled}><option value="cash">{formMode === TransactionType.SALE ? 'بيع نقدي مباشر' : 'شراء نقدي مباشر'}</option>{partyAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select><button type="button" title={`إضافة ${getPartyLabel()} جديد`} onClick={() => setIsAddingParty(true)} className="bg-accent hover:bg-blue-500 text-white font-bold p-2 rounded-md transition duration-300 flex-shrink-0 disabled:opacity-50" disabled={isFormDisabled}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></button></div></div>))}
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">المبلغ الإجمالي</label><input type="number" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="أدخل المبلغ الإجمالي" className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required min="0.01" step="any" /></div>
-            {(formMode !== TransactionType.EXPENSE && partyId !== 'cash') && (<div><label className="block text-sm font-medium text-text-secondary mb-1">المبلغ المدفوع</label><input type="number" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="أدخل المبلغ المدفوع الآن" className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} /></div>)}
+            <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">حساب الفئة</label>
+                {/* Only show add category form for EXPENSE type */}
+                {formMode === TransactionType.EXPENSE && isAddingCategory ? (
+                    <div className="border border-gray-500 rounded-md p-3 space-y-2 bg-background/50">
+                        <label className="block text-sm font-medium text-text-secondary">اسم فئة المصروفات الجديدة</label>
+                        <input
+                            type="text"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            placeholder="أدخل اسم فئة المصروفات"
+                            className="w-full bg-background border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
+                        />
+                        <div className="flex gap-2 justify-end pt-1">
+                            <button
+                                type="button"
+                                onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); }}
+                                className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
+                            >
+                                إلغاء
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleAddNewCategory}
+                                className="bg-primary hover:bg-primary-dark text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
+                            >
+                                حفظ
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className={formMode === TransactionType.EXPENSE ? "flex items-center gap-2" : ""}>
+                        <select
+                            value={categoryId}
+                            onChange={(e) => setCategoryId(e.target.value)}
+                            className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50"
+                            disabled={isFormDisabled || categoryAccounts.length === 0}
+                            required
+                        >
+                            <option value="" disabled>-- اختر حساب --</option>
+                            {categoryAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                        </select>
+                        {/* Only show + button for EXPENSE transactions */}
+                        {formMode === TransactionType.EXPENSE && (
+                            <button
+                                type="button"
+                                title="إضافة فئة مصروفات جديدة"
+                                onClick={() => setIsAddingCategory(true)}
+                                className="bg-accent hover:bg-blue-500 text-white font-bold p-2 rounded-md transition duration-300 flex-shrink-0 disabled:opacity-50"
+                                disabled={isFormDisabled}
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+            {formMode !== TransactionType.EXPENSE && (isAddingParty ? (<div className="border border-gray-500 rounded-md p-3 space-y-2 bg-background/50"><label className="block text-sm font-medium text-text-secondary">اسم {getPartyLabel()} الجديد</label><input type="text" value={newPartyName} onChange={(e) => setNewPartyName(e.target.value)} placeholder={`أدخل اسم ${getPartyLabel()}`} className="w-full bg-background border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"/><div className="flex gap-2 justify-end pt-1"><button type="button" onClick={() => { setIsAddingParty(false); setNewPartyName('');}} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300">إلغاء</button><button type="button" onClick={handleAddNewParty} className="bg-primary hover:bg-primary-dark text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300">حفظ</button></div></div>) : (<div><label className="block text-sm font-medium text-text-secondary mb-1">{getPartyLabel()}</label><div className="flex items-center gap-2"><select value={partyId} onChange={(e) => setPartyId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required><option value="" disabled>-- اختر {getPartyLabel()} --</option>{partyAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select><button type="button" title={`إضافة ${getPartyLabel()} جديد`} onClick={() => setIsAddingParty(true)} className="bg-accent hover:bg-blue-500 text-white font-bold p-2 rounded-md transition duration-300 flex-shrink-0 disabled:opacity-50" disabled={isFormDisabled}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></button></div></div>))}
+            <div className={formMode === TransactionType.EXPENSE ? "" : "grid grid-cols-2 gap-3"}>
+                <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">المبلغ الإجمالي</label>
+                    <input
+                        type="number"
+                        value={totalAmount}
+                        onChange={(e) => {
+                            setTotalAmount(e.target.value);
+                            // For expenses, automatically set paid amount equal to total amount
+                            if (formMode === TransactionType.EXPENSE) {
+                                setPaidAmount(e.target.value);
+                            }
+                        }}
+                        placeholder="أدخل المبلغ الإجمالي"
+                        className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50"
+                        disabled={isFormDisabled}
+                        required
+                        min="0.01"
+                        step="any"
+                    />
+                </div>
+                {formMode !== TransactionType.EXPENSE && (
+                    <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">المبلغ المدفوع</label>
+                        <input
+                            type="number"
+                            value={paidAmount}
+                            onChange={(e) => setPaidAmount(e.target.value)}
+                            placeholder="أدخل المبلغ المدفوع الآن"
+                            className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50"
+                            disabled={isFormDisabled}
+                            min="0"
+                            step="any"
+                        />
+                    </div>
+                )}
+            </div>
             {((formMode !== TransactionType.EXPENSE && parseFloat(paidAmount) > 0) || formMode === TransactionType.EXPENSE) && (<div><label className="block text-sm font-medium text-text-secondary mb-1">طريقة الدفع</label><select value={paymentAccountId} onChange={(e) => setPaymentAccountId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length === 0} required><option value="" disabled>-- اختر طريقة الدفع --</option>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>)}
         </>
     );
@@ -293,7 +510,81 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
     
     const renderCustomerPaymentFields = () => (
         <>
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">العميل</label><select value={paymentForm.partyId} onChange={(e) => setPaymentForm(p => ({...p, partyId: e.target.value}))} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || customerAccounts.length === 0} required>{customerAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
+            <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">العميل</label>
+                {isAddingParty ? (
+                    <div className="border border-gray-500 rounded-md p-3 space-y-2 bg-background/50">
+                        <label className="block text-sm font-medium text-text-secondary">اسم العميل الجديد</label>
+                        <input
+                            type="text"
+                            value={newPartyName}
+                            onChange={(e) => setNewPartyName(e.target.value)}
+                            placeholder="أدخل اسم العميل"
+                            className="w-full bg-background border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
+                        />
+                        <div className="flex gap-2 justify-end pt-1">
+                            <button
+                                type="button"
+                                onClick={() => { setIsAddingParty(false); setNewPartyName(''); }}
+                                className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
+                            >
+                                إلغاء
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!newPartyName.trim() || !onAddAccount) return;
+                                    const parentAccount = accounts.find(a => !a.parentId && a.type === AccountType.CUSTOMER);
+                                    if (!parentAccount) {
+                                        setError('لا يوجد حساب رئيسي للعملاء. يرجى إضافته من شجرة الحسابات.');
+                                        return;
+                                    }
+                                    const newAccount = onAddAccount({
+                                        name: newPartyName.trim(),
+                                        type: AccountType.CUSTOMER,
+                                        parentId: parentAccount.id,
+                                        accountCode: `${parentAccount.accountCode}-${Date.now().toString().slice(-6)}`,
+                                        classification: parentAccount.classification,
+                                        nature: parentAccount.nature
+                                    });
+                                    if (newAccount) {
+                                        setPaymentForm(p => ({...p, partyId: newAccount.id}));
+                                        setIsAddingParty(false);
+                                        setNewPartyName('');
+                                    }
+                                }}
+                                className="bg-primary hover:bg-primary-dark text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
+                            >
+                                حفظ
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={paymentForm.partyId}
+                            onChange={(e) => setPaymentForm(p => ({...p, partyId: e.target.value}))}
+                            className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50"
+                            disabled={isFormDisabled || customerAccounts.length === 0}
+                            required
+                        >
+                            <option value="" disabled>-- اختر عميل --</option>
+                            {customerAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                        </select>
+                        <button
+                            type="button"
+                            title="إضافة عميل جديد"
+                            onClick={() => setIsAddingParty(true)}
+                            className="bg-accent hover:bg-blue-500 text-white font-bold p-2 rounded-md transition duration-300 flex-shrink-0 disabled:opacity-50"
+                            disabled={isFormDisabled}
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </button>
+                    </div>
+                )}
+            </div>
             <div><label className="block text-sm font-medium text-text-secondary mb-1">حساب الاستلام</label><select value={paymentForm.paymentAccountId} onChange={(e) => setPaymentForm(p => ({...p, paymentAccountId: e.target.value}))} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length === 0} required>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
             <div><label className="block text-sm font-medium text-text-secondary mb-1">المبلغ المحصّل</label><input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm(p => ({...p, amount: e.target.value}))} placeholder="أدخل المبلغ" className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required min="0.01" step="any" /></div>
         </>
@@ -301,7 +592,81 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
 
     const renderSupplierPaymentFields = () => (
          <>
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">المورد</label><select value={paymentForm.partyId} onChange={(e) => setPaymentForm(p => ({...p, partyId: e.target.value}))} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || supplierAccounts.length === 0} required>{supplierAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
+            <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">المورد</label>
+                {isAddingParty ? (
+                    <div className="border border-gray-500 rounded-md p-3 space-y-2 bg-background/50">
+                        <label className="block text-sm font-medium text-text-secondary">اسم المورد الجديد</label>
+                        <input
+                            type="text"
+                            value={newPartyName}
+                            onChange={(e) => setNewPartyName(e.target.value)}
+                            placeholder="أدخل اسم المورد"
+                            className="w-full bg-background border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
+                        />
+                        <div className="flex gap-2 justify-end pt-1">
+                            <button
+                                type="button"
+                                onClick={() => { setIsAddingParty(false); setNewPartyName(''); }}
+                                className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
+                            >
+                                إلغاء
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!newPartyName.trim() || !onAddAccount) return;
+                                    const parentAccount = accounts.find(a => !a.parentId && a.type === AccountType.SUPPLIER);
+                                    if (!parentAccount) {
+                                        setError('لا يوجد حساب رئيسي للموردين. يرجى إضافته من شجرة الحسابات.');
+                                        return;
+                                    }
+                                    const newAccount = onAddAccount({
+                                        name: newPartyName.trim(),
+                                        type: AccountType.SUPPLIER,
+                                        parentId: parentAccount.id,
+                                        accountCode: `${parentAccount.accountCode}-${Date.now().toString().slice(-6)}`,
+                                        classification: parentAccount.classification,
+                                        nature: parentAccount.nature
+                                    });
+                                    if (newAccount) {
+                                        setPaymentForm(p => ({...p, partyId: newAccount.id}));
+                                        setIsAddingParty(false);
+                                        setNewPartyName('');
+                                    }
+                                }}
+                                className="bg-primary hover:bg-primary-dark text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
+                            >
+                                حفظ
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={paymentForm.partyId}
+                            onChange={(e) => setPaymentForm(p => ({...p, partyId: e.target.value}))}
+                            className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50"
+                            disabled={isFormDisabled || supplierAccounts.length === 0}
+                            required
+                        >
+                            <option value="" disabled>-- اختر مورد --</option>
+                            {supplierAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                        </select>
+                        <button
+                            type="button"
+                            title="إضافة مورد جديد"
+                            onClick={() => setIsAddingParty(true)}
+                            className="bg-accent hover:bg-blue-500 text-white font-bold p-2 rounded-md transition duration-300 flex-shrink-0 disabled:opacity-50"
+                            disabled={isFormDisabled}
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </button>
+                    </div>
+                )}
+            </div>
             <div><label className="block text-sm font-medium text-text-secondary mb-1">حساب الدفع</label><select value={paymentForm.paymentAccountId} onChange={(e) => setPaymentForm(p => ({...p, paymentAccountId: e.target.value}))} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length === 0} required>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
             <div><label className="block text-sm font-medium text-text-secondary mb-1">المبلغ المدفوع</label><input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm(p => ({...p, amount: e.target.value}))} placeholder="أدخل المبلغ" className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required min="0.01" step="any" /></div>
         </>
@@ -323,15 +688,45 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                 <form id="daily-entry-form" onSubmit={handleSubmit} className="space-y-4 p-6 overflow-y-auto">
                     {isFormDisabled && openFinancialYear && (<div className="bg-yellow-500/20 text-yellow-300 text-sm p-3 rounded-md text-center">{disabledMessage}</div>)}
                     <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">نوع الحركة</label>
-                        <select value={formMode} onChange={(e) => setFormMode(e.target.value as FormMode)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || isEditMode}>
-                            <option value={TransactionType.SALE}>بيع</option>
-                            <option value={TransactionType.PURCHASE}>شراء</option>
-                            <option value={TransactionType.EXPENSE}>صرف</option>
-                            <option value="Customer Payment">تحصيل من عميل</option>
-                            <option value="Supplier Payment">دفع لمورد</option>
-                            <option value={TransactionType.TRANSFER}>تحويل داخلي</option>
-                        </select>
+                        <label className="block text-sm font-medium text-text-secondary mb-2">نوع الحركة</label>
+                        <div className="overflow-x-auto pb-2">
+                            <div className="flex gap-2 min-w-max">
+                                {[
+                                    { value: TransactionType.SALE, label: 'بيع', Icon: SaleIcon, color: 'from-green-500 to-green-600', hoverColor: 'hover:from-green-600 hover:to-green-700' },
+                                    { value: TransactionType.PURCHASE, label: 'شراء', Icon: PurchaseIcon, color: 'from-blue-500 to-blue-600', hoverColor: 'hover:from-blue-600 hover:to-blue-700' },
+                                    { value: TransactionType.EXPENSE, label: 'صرف', Icon: ExpenseIcon, color: 'from-red-500 to-red-600', hoverColor: 'hover:from-red-600 hover:to-red-700' },
+                                    { value: 'Customer Payment' as FormMode, label: 'تحصيل من عميل', Icon: CustomerPaymentIcon, color: 'from-teal-500 to-teal-600', hoverColor: 'hover:from-teal-600 hover:to-teal-700' },
+                                    { value: 'Supplier Payment' as FormMode, label: 'دفع لمورد', Icon: SupplierPaymentIcon, color: 'from-orange-500 to-orange-600', hoverColor: 'hover:from-orange-600 hover:to-orange-700' },
+                                    { value: TransactionType.TRANSFER, label: 'تحويل داخلي', Icon: TransferIcon, color: 'from-purple-500 to-purple-600', hoverColor: 'hover:from-purple-600 hover:to-purple-700' },
+                                ].map(({ value, label, Icon, color, hoverColor }) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => setFormMode(value)}
+                                        disabled={isFormDisabled || isEditMode}
+                                        className={`
+                                            relative flex-shrink-0 w-20 h-16 rounded-lg transition-all duration-300
+                                            ${formMode === value
+                                                ? `bg-gradient-to-br ${color} shadow-lg scale-105 ring-2 ring-white ring-opacity-50`
+                                                : `bg-gradient-to-br ${color} opacity-60 ${hoverColor}`
+                                            }
+                                            disabled:opacity-30 disabled:cursor-not-allowed
+                                            flex flex-col items-center justify-center gap-1 p-1.5
+                                        `}
+                                    >
+                                        <Icon />
+                                        <span className="text-[10px] font-medium text-white text-center leading-tight">{label}</span>
+                                        {formMode === value && (
+                                            <div className="absolute top-0.5 right-0.5">
+                                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                     
                     {formMode === TransactionType.TRANSFER && renderTransferFields()}

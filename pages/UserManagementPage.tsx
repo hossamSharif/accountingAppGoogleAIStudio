@@ -2,14 +2,16 @@ import React, { useState, useMemo } from 'react';
 import { User, Shop } from '../types';
 import UserModal from '../components/UserModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { UserService, CreateUserData } from '../services/userService';
+import { getAuthErrorMessage } from '../utils/authErrorHandler';
 
 interface UserManagementPageProps {
     users: User[];
     shops: Shop[];
-    onAddUser: (user: Omit<User, 'id' | 'role' | 'isActive'>) => void;
-    onUpdateUser: (user: User) => void;
-    onToggleUserStatus: (userId: string) => void;
-    onDeleteUser: (userId: string) => void;
+    onAddUser?: (user: Omit<User, 'id' | 'role' | 'isActive'>) => void;
+    onUpdateUser?: (user: User) => void;
+    onToggleUserStatus?: (userId: string) => void;
+    onDeleteUser?: (userId: string) => void;
 }
 
 const PlusIcon = () => <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>;
@@ -25,6 +27,9 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
     const [deletingUser, setDeletingUser] = useState<User | null>(null);
     const [togglingUser, setTogglingUser] = useState<User | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
 
     const handleOpenModal = (user: User | null = null) => {
         setEditingUser(user);
@@ -36,26 +41,96 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
         setEditingUser(null);
     };
 
-    const handleSaveUser = (userData: Omit<User, 'id' | 'role' | 'isActive'> | User) => {
-        if ('id' in userData) {
-            onUpdateUser(userData as User);
-        } else {
-            onAddUser(userData);
+    const handleSaveUser = async (userData: (Omit<User, 'id' | 'role' | 'isActive'> & { password?: string }) | User) => {
+        try {
+            setIsLoading(true);
+            setError(null);
+            setSuccess(null);
+
+            if ('id' in userData && userData.id) {
+                // Update existing user
+                const { id, role, isActive, password, ...updateData } = userData as User & { password?: string };
+                await UserService.updateUser(id, updateData);
+                if (onUpdateUser) {
+                    onUpdateUser(userData as User);
+                }
+                setSuccess('تم تحديث المستخدم بنجاح');
+            } else {
+                // Create new user
+                const { password, ...userDataWithoutPassword } = userData as Omit<User, 'id' | 'role' | 'isActive'> & { password: string };
+
+                if (!password) {
+                    throw new Error('كلمة المرور مطلوبة للمستخدمين الجدد');
+                }
+
+                const createUserData: CreateUserData = {
+                    name: userDataWithoutPassword.name,
+                    email: userDataWithoutPassword.email,
+                    password,
+                    shopId: userDataWithoutPassword.shopId || ''
+                };
+
+                await UserService.createUser(createUserData);
+                if (onAddUser) {
+                    onAddUser(userDataWithoutPassword);
+                }
+                setSuccess('تم إنشاء المستخدم بنجاح وتم إرسال رابط التفعيل إلى البريد الإلكتروني');
+            }
+
+            handleCloseModal();
+        } catch (error: any) {
+            console.error('Error saving user:', error);
+            if (error.code) {
+                setError(getAuthErrorMessage(error.code));
+            } else {
+                setError(error.message || 'حدث خطأ أثناء حفظ المستخدم');
+            }
+        } finally {
+            setIsLoading(false);
         }
-        handleCloseModal();
     };
     
-    const handleConfirmDelete = () => {
-        if (deletingUser) {
-            onDeleteUser(deletingUser.id);
+    const handleConfirmDelete = async () => {
+        if (!deletingUser) return;
+
+        try {
+            setIsLoading(true);
+            setError(null);
+            setSuccess(null);
+
+            await UserService.deleteUser(deletingUser.id);
+            if (onDeleteUser) {
+                onDeleteUser(deletingUser.id);
+            }
+            setSuccess(`تم حذف المستخدم "${deletingUser.name}" بنجاح`);
             setDeletingUser(null);
+        } catch (error: any) {
+            console.error('Error deleting user:', error);
+            setError(error.message || 'حدث خطأ أثناء حذف المستخدم');
+        } finally {
+            setIsLoading(false);
         }
     };
     
-    const handleConfirmToggle = () => {
-        if (togglingUser) {
-            onToggleUserStatus(togglingUser.id);
+    const handleConfirmToggle = async () => {
+        if (!togglingUser) return;
+
+        try {
+            setIsLoading(true);
+            setError(null);
+            setSuccess(null);
+
+            await UserService.toggleUserStatus(togglingUser.id);
+            if (onToggleUserStatus) {
+                onToggleUserStatus(togglingUser.id);
+            }
+            setSuccess(`تم ${togglingUser.isActive ? 'إلغاء تفعيل' : 'تفعيل'} المستخدم "${togglingUser.name}" بنجاح`);
             setTogglingUser(null);
+        } catch (error: any) {
+            console.error('Error toggling user status:', error);
+            setError(error.message || 'حدث خطأ أثناء تحديث حالة المستخدم');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -81,7 +156,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
                     className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center shadow-lg transform hover:scale-105"
                 >
                     <PlusIcon />
-                    <span>إضافة مستخدم جديد</span>
+                    <span>{isLoading ? 'جاري التحميل...' : 'إضافة مستخدم جديد'}</span>
                 </button>
             </div>
 
@@ -97,6 +172,18 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
                     className="w-full bg-surface border border-gray-600 rounded-lg p-3 pr-10 text-text-primary focus:ring-primary focus:border-primary placeholder-gray-400"
                 />
             </div>
+
+            {/* Error and Success Messages */}
+            {error && (
+                <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-4">
+                    {error}
+                </div>
+            )}
+            {success && (
+                <div className="bg-green-500/20 border border-green-500 text-green-400 px-4 py-3 rounded-lg mb-4">
+                    {success}
+                </div>
+            )}
 
             <div className="bg-surface p-6 rounded-lg shadow-lg">
                 <div className="overflow-x-auto">
@@ -122,13 +209,28 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
                                         </span>
                                     </td>
                                     <td className="p-3 text-left">
-                                        <button onClick={() => handleOpenModal(user)} className="text-accent hover:text-blue-400 p-2 transition-colors duration-200" aria-label={`تعديل ${user.name}`}>
+                                        <button
+                                            onClick={() => handleOpenModal(user)}
+                                            disabled={isLoading}
+                                            className="text-accent hover:text-blue-400 p-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            aria-label={`تعديل ${user.name}`}
+                                        >
                                             <EditIcon />
                                         </button>
-                                        <button onClick={() => setTogglingUser(user)} className={`p-2 transition-colors duration-200 ${user.isActive ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`} aria-label={`${user.isActive ? 'إلغاء تفعيل' : 'تفعيل'} ${user.name}`}>
+                                        <button
+                                            onClick={() => setTogglingUser(user)}
+                                            disabled={isLoading}
+                                            className={`p-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${user.isActive ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`}
+                                            aria-label={`${user.isActive ? 'إلغاء تفعيل' : 'تفعيل'} ${user.name}`}
+                                        >
                                             {user.isActive ? <ToggleOffIcon /> : <ToggleOnIcon />}
                                         </button>
-                                        <button onClick={() => setDeletingUser(user)} className="text-red-500 hover:text-red-400 p-2 transition-colors duration-200" aria-label={`حذف ${user.name}`}>
+                                        <button
+                                            onClick={() => setDeletingUser(user)}
+                                            disabled={isLoading}
+                                            className="text-red-500 hover:text-red-400 p-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            aria-label={`حذف ${user.name}`}
+                                        >
                                             <DeleteIcon />
                                         </button>
                                     </td>
@@ -146,13 +248,14 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
                 </div>
             </div>
 
-            <UserModal 
+            <UserModal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
                 onSave={handleSaveUser}
                 userToEdit={editingUser}
                 allUsers={users}
                 shops={shops.filter(s => s.isActive)}
+                isLoading={isLoading}
             />
 
             {deletingUser && (

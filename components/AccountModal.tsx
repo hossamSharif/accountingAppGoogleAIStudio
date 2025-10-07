@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Account, AccountType, AccountClassification, AccountNature } from '../types';
+import { Account, AccountType, AccountClassification, AccountNature, User } from '../types';
 
 interface AccountModalProps {
     isOpen: boolean;
@@ -7,9 +7,10 @@ interface AccountModalProps {
     onSave: (accountData: Omit<Account, 'id' | 'shopId' | 'isActive'> | Account) => void;
     accountToEdit: Account | null;
     accounts: Account[];
+    currentUser: User | null;
 }
 
-const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, accountToEdit, accounts }) => {
+const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, accountToEdit, accounts, currentUser }) => {
     const [name, setName] = useState('');
     const [accountCode, setAccountCode] = useState('');
     const [parentId, setParentId] = useState<string>('');
@@ -72,31 +73,43 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (isMainAccount) return;
-        if (!name.trim() || !accountCode.trim() || !parentId || !classification || !nature || !type) return;
+
+        // Admin can edit parent accounts
+        const isAdmin = currentUser?.role === 'admin';
+
+        // For parent accounts being edited by admin
+        if (isMainAccount && isAdmin) {
+            if (!name.trim() || !accountCode.trim() || !classification || !nature || !type) return;
+        } else if (isMainAccount && !isAdmin) {
+            // Non-admin cannot edit parent accounts
+            return;
+        } else {
+            // For sub-accounts
+            if (!name.trim() || !accountCode.trim() || !parentId || !classification || !nature || !type) return;
+        }
         
         const parsedOpeningBalance = parseFloat(openingBalance);
 
         if (accountToEdit) {
-            const accountData = { 
-                name, 
-                accountCode,
-                classification,
-                nature,
-                type,
-                parentId, 
-                isActive,
-                openingBalance: isNaN(parsedOpeningBalance) ? accountToEdit.openingBalance : parsedOpeningBalance
-            };
-            onSave({ ...accountData, id: accountToEdit.id, shopId: accountToEdit.shopId });
-        } else {
-            const newAccountData = { 
+            const accountData = {
                 name,
                 accountCode,
                 classification,
                 nature,
                 type,
-                parentId,
+                parentId: isMainAccount ? undefined : parentId,
+                isActive,
+                openingBalance: isNaN(parsedOpeningBalance) ? accountToEdit.openingBalance : parsedOpeningBalance
+            };
+            onSave({ ...accountData, id: accountToEdit.id, shopId: accountToEdit.shopId });
+        } else {
+            const newAccountData = {
+                name,
+                accountCode,
+                classification,
+                nature,
+                type,
+                parentId: isMainAccount ? undefined : parentId,
                 openingBalance: isNaN(parsedOpeningBalance) ? undefined : parsedOpeningBalance
             };
             onSave(newAccountData);
@@ -106,6 +119,8 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
     if (!isOpen) return null;
 
     const isMainAccount = accountToEdit ? !accountToEdit.parentId : false;
+    const isAdmin = currentUser?.role === 'admin';
+    const canEditParentFields = isMainAccount && isAdmin;
 
     return (
         <div 
@@ -117,21 +132,22 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                 <h2 className="text-2xl font-bold mb-6">{accountToEdit ? 'تعديل الحساب' : 'إضافة حساب جديد'}</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="space-y-4">
-                        <div>
-                            <label htmlFor="parentId" className="block text-sm font-medium text-text-secondary mb-1">الحساب الرئيسي</label>
-                            <select
-                                id="parentId"
-                                value={parentId}
-                                onChange={(e) => setParentId(e.target.value)}
-                                className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                                required
-                                disabled={isMainAccount}
-                            >
-                                {parentAccountOptions.map(pAcc => (
-                                    <option key={pAcc.id} value={pAcc.id}>{pAcc.name} ({pAcc.accountCode})</option>
-                                ))}
-                            </select>
-                        </div>
+                        {!isMainAccount && (
+                            <div>
+                                <label htmlFor="parentId" className="block text-sm font-medium text-text-secondary mb-1">الحساب الرئيسي</label>
+                                <select
+                                    id="parentId"
+                                    value={parentId}
+                                    onChange={(e) => setParentId(e.target.value)}
+                                    className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                    required
+                                >
+                                    {parentAccountOptions.map(pAcc => (
+                                        <option key={pAcc.id} value={pAcc.id}>{pAcc.name} ({pAcc.accountCode})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                              <div>
                                 <label htmlFor="accountCode" className="block text-sm font-medium text-text-secondary mb-1">رمز الحساب</label>
@@ -143,7 +159,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                                     placeholder="e.g., 5101"
                                     className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     required
-                                    disabled={isMainAccount}
+                                    disabled={isMainAccount && !isAdmin}
                                 />
                             </div>
                             <div>
@@ -156,21 +172,70 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                                     placeholder="e.g., Rent Expense"
                                     className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     required
-                                    disabled={isMainAccount}
+                                    disabled={isMainAccount && !isAdmin}
                                 />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                              <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">التصنيف (تلقائي)</label>
-                                <input type="text" value={classification} readOnly className="w-full bg-background/50 border border-gray-700 rounded-md p-2 text-text-secondary cursor-default" />
+                                <label className="block text-sm font-medium text-text-secondary mb-1">
+                                    التصنيف {canEditParentFields ? '' : '(تلقائي)'}
+                                </label>
+                                {canEditParentFields ? (
+                                    <select
+                                        value={classification}
+                                        onChange={(e) => setClassification(e.target.value as AccountClassification)}
+                                        className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
+                                        required
+                                    >
+                                        {Object.values(AccountClassification).map((classValue) => (
+                                            <option key={classValue} value={classValue}>{classValue}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input type="text" value={classification} readOnly className="w-full bg-background/50 border border-gray-700 rounded-md p-2 text-text-secondary cursor-default" />
+                                )}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">الطبيعة (تلقائي)</label>
-                                <input type="text" value={nature} readOnly className="w-full bg-background/50 border border-gray-700 rounded-md p-2 text-text-secondary cursor-default" />
+                                <label className="block text-sm font-medium text-text-secondary mb-1">
+                                    الطبيعة {canEditParentFields ? '' : '(تلقائي)'}
+                                </label>
+                                {canEditParentFields ? (
+                                    <select
+                                        value={nature}
+                                        onChange={(e) => setNature(e.target.value as AccountNature)}
+                                        className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
+                                        required
+                                    >
+                                        {Object.values(AccountNature).map((natureValue) => (
+                                            <option key={natureValue} value={natureValue}>{natureValue}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input type="text" value={nature} readOnly className="w-full bg-background/50 border border-gray-700 rounded-md p-2 text-text-secondary cursor-default" />
+                                )}
                             </div>
                         </div>
-                        
+
+                        {/* Account Type field - only for parent accounts when admin */}
+                        {canEditParentFields && (
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary mb-1">
+                                    النوع
+                                </label>
+                                <select
+                                    value={type}
+                                    onChange={(e) => setType(e.target.value as AccountType)}
+                                    className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
+                                    required
+                                >
+                                    {Object.values(AccountType).map((typeValue) => (
+                                        <option key={typeValue} value={typeValue}>{typeValue}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         {!accountToEdit && (
                             <div>
                                 <label htmlFor="openingBalance" className="block text-sm font-medium text-text-secondary mb-1">الرصيد الافتتاحي (اختياري)</label>
