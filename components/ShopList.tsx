@@ -48,7 +48,7 @@ const ShopList: React.FC<ShopListProps> = ({ shops, onEdit, onToggleStatus, onVi
                                 <button
                                     onClick={() => onViewAccounts(shop)}
                                     disabled={isLoading}
-                                    className="text-primary hover:text-teal-400 p-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="text-primary hover:text-yellow-400 p-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                     title={`عرض حسابات ${shop.name}`}
                                     aria-label={`عرض حسابات ${shop.name}`}
                                 >

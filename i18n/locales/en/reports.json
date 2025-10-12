@@ -1,0 +1,120 @@
+{
+  "title": "Financial Reports",
+  "subtitle": "Generate and view financial reports and analytics",
+  "types": {
+    "trialBalance": "Trial Balance",
+    "profitLoss": "Profit & Loss Statement",
+    "balanceSheet": "Balance Sheet",
+    "cashFlow": "Cash Flow Statement",
+    "accountsReceivable": "Accounts Receivable",
+    "accountsPayable": "Accounts Payable"
+  },
+  "filters": {
+    "dateRange": "Date Range",
+    "from": "From",
+    "to": "To",
+    "shop": "Shop",
+    "allShops": "All Shops",
+    "period": "Period",
+    "custom": "Custom",
+    "thisMonth": "This Month",
+    "lastMonth": "Last Month",
+    "thisQuarter": "This Quarter",
+    "thisYear": "This Year"
+  },
+  "actions": {
+    "generate": "Generate Report",
+    "export": "Export",
+    "print": "Print",
+    "refresh": "Refresh"
+  },
+  "trialBalance": {
+    "title": "Trial Balance",
+    "subtitle": "Summary of all account balances",
+    "columns": {
+      "accountCode": "Code",
+      "accountName": "Account Name",
+      "debit": "Debit",
+      "credit": "Credit"
+    },
+    "totals": {
+      "totalDebit": "Total Debit",
+      "totalCredit": "Total Credit",
+      "difference": "Difference"
+    },
+    "balanced": "Trial balance is balanced",
+    "notBalanced": "Warning: Trial balance is not balanced"
+  },
+  "profitLoss": {
+    "title": "Profit & Loss Statement",
+    "subtitle": "Revenue and expense summary",
+    "sections": {
+      "revenue": "Revenue",
+      "costOfGoodsSold": "Cost of Goods Sold",
+      "grossProfit": "Gross Profit",
+      "operatingExpenses": "Operating Expenses",
+      "netProfit": "Net Profit",
+      "netLoss": "Net Loss"
+    },
+    "items": {
+      "sales": "Sales",
+      "salesReturns": "Sales Returns",
+      "netSales": "Net Sales",
+      "openingStock": "Opening Stock",
+      "purchases": "Purchases",
+      "purchaseReturns": "Purchase Returns",
+      "closingStock": "Closing Stock",
+      "totalCOGS": "Total Cost of Goods Sold"
+    }
+  },
+  "balanceSheet": {
+    "title": "Balance Sheet",
+    "subtitle": "Assets, liabilities, and equity",
+    "sections": {
+      "assets": "Assets",
+      "currentAssets": "Current Assets",
+      "fixedAssets": "Fixed Assets",
+      "totalAssets": "Total Assets",
+      "liabilities": "Liabilities",
+      "currentLiabilities": "Current Liabilities",
+      "longTermLiabilities": "Long-term Liabilities",
+      "totalLiabilities": "Total Liabilities",
+      "equity": "Equity",
+      "totalEquity": "Total Equity",
+      "totalLiabilitiesEquity": "Total Liabilities & Equity"
+    },
+    "items": {
+      "cash": "Cash",
+      "bank": "Bank",
+      "accountsReceivable": "Accounts Receivable",
+      "inventory": "Inventory",
+      "accountsPayable": "Accounts Payable",
+      "ownerEquity": "Owner's Equity",
+      "retainedEarnings": "Retained Earnings"
+    }
+  },
+  "cashFlow": {
+    "title": "Cash Flow Statement",
+    "subtitle": "Cash inflows and outflows",
+    "sections": {
+      "operatingActivities": "Operating Activities",
+      "investingActivities": "Investing Activities",
+      "financingActivities": "Financing Activities",
+      "netCashFlow": "Net Cash Flow"
+    },
+    "items": {
+      "cashFromSales": "Cash from Sales",
+      "cashPaidPurchases": "Cash Paid for Purchases",
+      "cashPaidExpenses": "Cash Paid for Expenses",
+      "beginningCash": "Beginning Cash Balance",
+      "endingCash": "Ending Cash Balance"
+    }
+  },
+  "messages": {
+    "generating": "Generating report...",
+    "generated": "Report generated successfully",
+    "error": "Error generating report",
+    "noData": "No data available for the selected period",
+    "selectPeriod": "Please select a period to generate the report"
+  }
+}

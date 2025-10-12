@@ -1,0 +1,46 @@
+{
+  "title": "كشف حساب",
+  "subtitle": "عرض كشف حساب مفصل والمعاملات",
+  "selectAccount": "اختر الحساب",
+  "selectAccountPlaceholder": "-- الرجاء اختيار حساب --",
+  "filterType": {
+    "label": "نوع الفترة",
+    "range": "فترة",
+    "day": "يوم"
+  },
+  "dateLabels": {
+    "from": "من",
+    "to": "إلى",
+    "selectDay": "تحديد اليوم"
+  },
+  "summary": {
+    "openingBalance": "الرصيد الافتتاحي",
+    "totalDebit": "إجمالي مدين",
+    "totalCredit": "إجمالي دائن",
+    "closingBalance": "الرصيد الختامي"
+  },
+  "table": {
+    "title": "الحركات",
+    "columns": {
+      "date": "التاريخ",
+      "context": "البيان",
+      "debit": "مدين",
+      "credit": "دائن",
+      "balance": "الرصيد"
+    },
+    "empty": "لا توجد حركات في الفترة المحددة."
+  },
+  "actions": {
+    "exportPDF": "تصدير PDF"
+  },
+  "messages": {
+    "selectAccountPrompt": "الرجاء اختيار حساب وتحديد فترة لعرض كشف الحساب.",
+    "exportError": "حدث خطأ أثناء تصدير كشف الحساب",
+    "exportSuccess": "تم تصدير كشف الحساب بنجاح"
+  },
+  "transfer": {
+    "to": "تحويل إلى: {account}",
+    "from": "تحويل من: {account}"
+  },
+  "unknown": "غير معروف"
+}

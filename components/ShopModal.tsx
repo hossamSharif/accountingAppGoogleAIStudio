@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shop, FinancialYear } from '../types';
 import { FinancialYearService } from '../services/financialYearService';
 import { formatNumber } from '../utils/formatting';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface ShopModalProps {
     isOpen: boolean;
@@ -13,8 +14,10 @@ interface ShopModalProps {
 
 interface ShopFormData {
     name: string;
-    shopCode: string; // Added shop code field
+    nameEn?: string; // NEW: English name
+    shopCode: string;
     description: string;
+    descriptionEn?: string; // NEW: English description
     address?: string;
     contactPhone?: string;
     contactEmail?: string;
@@ -25,10 +28,13 @@ interface ShopFormData {
 }
 
 const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEdit, isLoading = false }) => {
+    const { t, language } = useTranslation();
     const [formData, setFormData] = useState<ShopFormData>({
         name: '',
-        shopCode: '', // Initialize shop code
+        nameEn: '',
+        shopCode: '',
         description: '',
+        descriptionEn: '',
         address: '',
         contactPhone: '',
         contactEmail: '',
@@ -46,8 +52,10 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
         if (shopToEdit) {
             setFormData({
                 name: shopToEdit.name,
-                shopCode: shopToEdit.shopCode || '', // Include shop code
+                nameEn: (shopToEdit as any).nameEn || '',
+                shopCode: shopToEdit.shopCode || '',
                 description: shopToEdit.description,
+                descriptionEn: (shopToEdit as any).descriptionEn || '',
                 address: (shopToEdit as any).address || '',
                 contactPhone: (shopToEdit as any).contactPhone || '',
                 contactEmail: (shopToEdit as any).contactEmail || '',
@@ -59,8 +67,10 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
         } else {
             setFormData({
                 name: '',
-                shopCode: '', // Initialize shop code
+                nameEn: '',
+                shopCode: '',
                 description: '',
+                descriptionEn: '',
                 address: '',
                 contactPhone: '',
                 contactEmail: '',
@@ -85,31 +95,31 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
 
         // Required fields validation
         if (!formData.name.trim()) {
-            newErrors.name = 'اسم المتجر مطلوب';
+            newErrors.name = t('shops.validation.nameRequired');
         } else if (formData.name.trim().length < 2) {
-            newErrors.name = 'اسم المتجر يجب أن يكون أكثر من حرفين';
+            newErrors.name = t('shops.validation.nameTooShort');
         }
 
         // Shop code validation
         if (!formData.shopCode.trim()) {
-            newErrors.shopCode = 'رمز المتجر مطلوب';
+            newErrors.shopCode = t('shops.validation.codeRequired');
         } else if (!/^[A-Za-z0-9]{2,10}$/.test(formData.shopCode.trim())) {
-            newErrors.shopCode = 'رمز المتجر يجب أن يكون 2-10 أحرف/أرقام إنجليزية فقط';
+            newErrors.shopCode = t('shops.validation.codeInvalid');
         }
 
         // Email validation if provided
         if (formData.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
-            newErrors.contactEmail = 'البريد الإلكتروني غير صالح';
+            newErrors.contactEmail = t('shops.validation.emailInvalid');
         }
 
         // Phone validation if provided
         if (formData.contactPhone && !/^[0-9+\-\s()]{8,}$/.test(formData.contactPhone)) {
-            newErrors.contactPhone = 'رقم الهاتف غير صالح';
+            newErrors.contactPhone = t('shops.validation.phoneInvalid');
         }
 
         // Opening stock validation (only for new shops)
         if (!shopToEdit && formData.openingStockValue < 0) {
-            newErrors.openingStockValue = 'قيمة المخزون لا يمكن أن تكون سالبة';
+            newErrors.openingStockValue = t('shops.validation.openingStockNegative');
         }
 
         setErrors(newErrors);
@@ -184,7 +194,11 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
         <div className="flex justify-center mb-6">
             <div className="flex items-center space-x-4 space-x-reverse">
                 {['basic', 'details', 'preview'].map((step, index) => {
-                    const stepNames = { basic: 'المعلومات الأساسية', details: 'التفاصيل', preview: 'المعاينة' };
+                    const stepNames = {
+                        basic: t('shops.form.steps.basic'),
+                        details: t('shops.form.steps.details'),
+                        preview: t('shops.form.steps.preview')
+                    };
                     const isActive = currentStep === step;
                     const isCompleted = ['basic', 'details', 'preview'].indexOf(currentStep) > index;
 
@@ -216,9 +230,32 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
 
     const renderBasicInfo = () => (
         <div className="space-y-4">
+            {/* Shop Code */}
+            <div>
+                <label htmlFor="shopCode" className="block text-sm font-medium text-text-secondary mb-1">
+                    {t('shops.form.shopCode')} *
+                    <span className="text-xs text-gray-500 mr-2">({t('shops.form.shopCodeHint')})</span>
+                </label>
+                <input
+                    type="text"
+                    id="shopCode"
+                    value={formData.shopCode}
+                    onChange={(e) => updateFormData('shopCode', e.target.value.toUpperCase())}
+                    placeholder="SH01 or MAIN"
+                    className={`w-full bg-background border rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary ${
+                        errors.shopCode ? 'border-red-500' : 'border-gray-600'
+                    }`}
+                    maxLength={10}
+                    required
+                    dir="ltr"
+                />
+                {errors.shopCode && <p className="text-red-500 text-sm mt-1">{errors.shopCode}</p>}
+            </div>
+
+            {/* Shop Name (Arabic) */}
             <div>
                 <label htmlFor="shopName" className="block text-sm font-medium text-text-secondary mb-1">
-                    اسم المتجر *
+                    {t('shops.form.nameArabic')} *
                 </label>
                 <input
                     type="text"
@@ -230,47 +267,65 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
                         errors.name ? 'border-red-500' : 'border-gray-600'
                     }`}
                     required
+                    dir="rtl"
                 />
                 {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
             </div>
 
+            {/* Shop Name (English) - OPTIONAL */}
             <div>
-                <label htmlFor="shopCode" className="block text-sm font-medium text-text-secondary mb-1">
-                    رمز المتجر *
-                    <span className="text-xs text-gray-500 mr-2">(يستخدم في تسمية الحسابات)</span>
+                <label htmlFor="shopNameEn" className="block text-sm font-medium text-text-secondary mb-1">
+                    {t('shops.form.nameEnglish')}
+                    <span className="text-xs text-gray-500 mr-2">({t('common.ui.optional')})</span>
                 </label>
                 <input
                     type="text"
-                    id="shopCode"
-                    value={formData.shopCode}
-                    onChange={(e) => updateFormData('shopCode', e.target.value.toUpperCase())}
-                    placeholder="مثال: SH01 أو MAIN"
-                    className={`w-full bg-background border rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary ${
-                        errors.shopCode ? 'border-red-500' : 'border-gray-600'
-                    }`}
-                    maxLength={10}
-                    required
+                    id="shopNameEn"
+                    value={formData.nameEn}
+                    onChange={(e) => updateFormData('nameEn', e.target.value)}
+                    placeholder="Example: Downtown Shop"
+                    className="w-full bg-background border border-gray-600 rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary"
+                    dir="ltr"
                 />
-                {errors.shopCode && <p className="text-red-500 text-sm mt-1">{errors.shopCode}</p>}
             </div>
 
+            {/* Description (Arabic) */}
             <div>
                 <label htmlFor="description" className="block text-sm font-medium text-text-secondary mb-1">
-                    وصف المتجر
+                    {t('shops.form.descriptionArabic')}
                 </label>
                 <textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => updateFormData('description', e.target.value)}
                     placeholder="وصف مختصر للمتجر أو نشاطه التجاري"
-                    rows={3}
+                    rows={2}
                     className="w-full bg-background border border-gray-600 rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary"
+                    dir="rtl"
                 />
             </div>
 
+            {/* Description (English) - OPTIONAL */}
+            <div>
+                <label htmlFor="descriptionEn" className="block text-sm font-medium text-text-secondary mb-1">
+                    {t('shops.form.descriptionEnglish')}
+                    <span className="text-xs text-gray-500 mr-2">({t('common.ui.optional')})</span>
+                </label>
+                <textarea
+                    id="descriptionEn"
+                    value={formData.descriptionEn}
+                    onChange={(e) => updateFormData('descriptionEn', e.target.value)}
+                    placeholder="Brief description of the shop or business"
+                    rows={2}
+                    className="w-full bg-background border border-gray-600 rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary"
+                    dir="ltr"
+                />
+            </div>
+
+            {/* Business Type */}
             <div>
                 <label htmlFor="businessType" className="block text-sm font-medium text-text-secondary mb-1">
-                    نوع النشاط
+                    {t('shops.form.businessType')}
                 </label>
                 <select
                     id="businessType"
@@ -278,25 +333,25 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
                     onChange={(e) => updateFormData('businessType', e.target.value)}
                     className="w-full bg-background border border-gray-600 rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary"
                 >
-                    <option value="">اختر نوع النشاط</option>
-                    <option value="اسبيرات ركشة">اسبيرات ركشة</option>
-                    <option value="اليات زراعية">اليات زراعية</option>
-                    <option value="ادوات صحية">ادوات صحية</option>
-                    <option value="اخري">اخري</option>
+                    <option value="">{t('common.actions.select')}</option>
+                    <option value="rickshawSpares">{t('shops.businessTypes.rickshawSpares')}</option>
+                    <option value="agriculturalEquipment">{t('shops.businessTypes.agriculturalEquipment')}</option>
+                    <option value="buildingMaterials">{t('shops.businessTypes.buildingMaterials')}</option>
+                    <option value="other">{t('shops.businessTypes.other')}</option>
                 </select>
             </div>
 
-            {formData.businessType === 'اخري' && (
+            {formData.businessType === 'other' && (
                 <div>
                     <label htmlFor="customBusinessType" className="block text-sm font-medium text-text-secondary mb-1">
-                        اكتب نوع النشاط
+                        {t('shops.form.customBusinessType')}
                     </label>
                     <input
                         type="text"
                         id="customBusinessType"
                         value={formData.customBusinessType}
                         onChange={(e) => updateFormData('customBusinessType', e.target.value)}
-                        placeholder="مثال: قطع غيار سيارات"
+                        placeholder={language === 'ar' ? 'مثال: قطع غيار سيارات' : 'Example: Auto Parts'}
                         className="w-full bg-background border border-gray-600 rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary"
                     />
                 </div>
@@ -305,7 +360,7 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
             {!shopToEdit && (
                 <div>
                     <label htmlFor="openingStock" className="block text-sm font-medium text-text-secondary mb-1">
-                        قيمة المخزون الافتتاحي (ريال)
+                        {t('shops.form.openingStockValue')}
                     </label>
                     <input
                         type="number"
@@ -318,9 +373,9 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
                         className={`w-full bg-background border rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary ${
                             errors.openingStockValue ? 'border-red-500' : 'border-gray-600'
                         }`}
+                        dir="ltr"
                     />
                     {errors.openingStockValue && <p className="text-red-500 text-sm mt-1">{errors.openingStockValue}</p>}
-                    <p className="text-xs text-gray-500 mt-1">سيتم إنشاء حساب مخزون أول المدة بهذه القيمة</p>
                 </div>
             )}
         </div>
@@ -330,13 +385,13 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
         <div className="space-y-4">
             <div>
                 <label htmlFor="address" className="block text-sm font-medium text-text-secondary mb-1">
-                    عنوان المتجر
+                    {t('shops.form.address')}
                 </label>
                 <textarea
                     id="address"
                     value={formData.address}
                     onChange={(e) => updateFormData('address', e.target.value)}
-                    placeholder="العنوان الكامل للمتجر"
+                    placeholder={language === 'ar' ? 'العنوان الكامل للمتجر' : 'Full shop address'}
                     rows={2}
                     className="w-full bg-background border border-gray-600 rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary"
                 />
@@ -344,34 +399,36 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
 
             <div>
                 <label htmlFor="contactPhone" className="block text-sm font-medium text-text-secondary mb-1">
-                    رقم الهاتف
+                    {t('shops.form.contactPhone')}
                 </label>
                 <input
                     type="tel"
                     id="contactPhone"
                     value={formData.contactPhone}
                     onChange={(e) => updateFormData('contactPhone', e.target.value)}
-                    placeholder="مثال: +966501234567"
+                    placeholder="+966501234567"
                     className={`w-full bg-background border rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary ${
                         errors.contactPhone ? 'border-red-500' : 'border-gray-600'
                     }`}
+                    dir="ltr"
                 />
                 {errors.contactPhone && <p className="text-red-500 text-sm mt-1">{errors.contactPhone}</p>}
             </div>
 
             <div>
                 <label htmlFor="contactEmail" className="block text-sm font-medium text-text-secondary mb-1">
-                    البريد الإلكتروني
+                    {t('shops.form.contactEmail')}
                 </label>
                 <input
                     type="email"
                     id="contactEmail"
                     value={formData.contactEmail}
                     onChange={(e) => updateFormData('contactEmail', e.target.value)}
-                    placeholder="مثال: shop@example.com"
+                    placeholder="shop@example.com"
                     className={`w-full bg-background border rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary ${
                         errors.contactEmail ? 'border-red-500' : 'border-gray-600'
                     }`}
+                    dir="ltr"
                 />
                 {errors.contactEmail && <p className="text-red-500 text-sm mt-1">{errors.contactEmail}</p>}
             </div>
@@ -395,9 +452,9 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
                         <div className="flex justify-between">
                             <span className="text-gray-600">نوع النشاط:</span>
                             <span className="font-medium">
-                                {formData.businessType === 'اخري' && formData.customBusinessType
+                                {formData.businessType === 'other' && formData.customBusinessType
                                     ? formData.customBusinessType
-                                    : formData.businessType}
+                                    : t(`shops.businessTypes.${formData.businessType}`)}
                             </span>
                         </div>
                     )}
@@ -450,7 +507,7 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
         >
             <div className="bg-surface rounded-lg shadow-xl p-6 w-full max-w-2xl m-4 max-h-[90vh] overflow-y-auto transform transition-all duration-300 scale-95 opacity-0 animate-fade-in-scale">
                 <h2 className="text-2xl font-bold mb-6 text-center">
-                    {shopToEdit ? 'تعديل المتجر' : 'إضافة متجر جديد'}
+                    {shopToEdit ? t('shops.form.title.edit') : t('shops.form.title.create')}
                 </h2>
 
                 {!shopToEdit && renderStepIndicator()}
@@ -469,7 +526,7 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
                                     disabled={isLoading}
                                     className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    السابق
+                                    {t('common.actions.previous')}
                                 </button>
                             )}
                             <button
@@ -478,7 +535,7 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
                                 disabled={isLoading}
                                 className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                إلغاء
+                                {t('common.actions.cancel')}
                             </button>
                         </div>
 
@@ -490,7 +547,7 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
                                     disabled={isLoading}
                                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    التالي
+                                    {t('common.actions.next')}
                                 </button>
                             ) : (
                                 <button
@@ -498,7 +555,7 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
                                     disabled={isLoading || Object.keys(errors).length > 0}
                                     className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {isLoading ? 'جاري المعالجة...' : (shopToEdit ? 'حفظ التعديلات' : 'إنشاء المتجر')}
+                                    {isLoading ? t('common.ui.loading') : (shopToEdit ? t('common.actions.save') : t('shops.actions.create'))}
                                 </button>
                             )}
                         </div>

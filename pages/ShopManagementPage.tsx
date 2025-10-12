@@ -10,6 +10,7 @@ import { ShopService, CreateShopData } from '../services/shopService';
 import { useShopData } from '../hooks/useShopData';
 import { LoggingService } from '../services/loggingService';
 import { LogType } from '../types';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface ShopManagementPageProps {
     currentUser: User;
@@ -26,6 +27,7 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
     onNavigateToFinancialYears,
     onNavigateToUsers
 }) => {
+    const { t, language } = useTranslation();
     const { shops, loading: shopsLoading, error: shopsError, refreshShops, getShopStats } = useShopData(currentUser);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,17 +65,21 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
                 await LoggingService.logAction(
                     currentUser,
                     LogType.SHOP_UPDATED,
-                    `تم تحديث متجر "${shopData.name}"`,
-                    id
+                    'logs.messages.shopUpdated',
+                    id,
+                    undefined,
+                    { shopName: shopData.name }
                 );
 
-                setSuccess(`تم تحديث متجر "${shopData.name}" بنجاح`);
+                setSuccess(t('shops.messages.updated'));
             } else {
                 // Create new shop
                 const createShopData: CreateShopData = {
                     name: shopData.name,
-                    shopCode: (shopData as any).shopCode, // Include shop code
+                    nameEn: (shopData as any).nameEn || '',
+                    shopCode: (shopData as any).shopCode,
                     description: shopData.description,
+                    descriptionEn: (shopData as any).descriptionEn || '',
                     address: (shopData as any).address,
                     contactPhone: (shopData as any).contactPhone,
                     contactEmail: (shopData as any).contactEmail,
@@ -88,11 +94,13 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
                 await LoggingService.logAction(
                     currentUser,
                     LogType.SHOP_CREATED,
-                    `تم إنشاء متجر جديد "${newShop.name}" مع ${Math.round((shopData as any).openingStockValue || 0)} ريال مخزون افتتاحي`,
-                    newShop.id
+                    'logs.messages.shopCreated',
+                    newShop.id,
+                    { openingStockValue: Math.round((shopData as any).openingStockValue || 0) },
+                    { shopName: newShop.name }
                 );
 
-                setSuccess(`تم إنشاء متجر "${newShop.name}" بنجاح مع الحسابات الافتراضية والسنة المالية`);
+                setSuccess(t('shops.messages.created'));
             }
 
             handleCloseModal();
@@ -100,14 +108,14 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
 
         } catch (error: any) {
             console.error('Error saving shop:', error);
-            let errorMessage = 'حدث خطأ أثناء حفظ المتجر';
+            let errorMessage = t('errors.general');
 
             if (error.code === 'permission-denied') {
-                errorMessage = 'ليس لديك صلاحية لتنفيذ هذا العمل';
+                errorMessage = t('errors.permissionDenied');
             } else if (error.message?.includes('Shop with this name already exists')) {
-                errorMessage = 'يوجد متجر بنفس هذا الاسم، يرجى اختيار اسم آخر';
+                errorMessage = t('shops.validation.nameExists');
             } else if (error.message?.includes('Firebase')) {
-                errorMessage = 'مشكلة في الاتصال بقاعدة البيانات، يرجى المحاولة مرة أخرى';
+                errorMessage = t('errors.databaseConnection');
             }
 
             setError(errorMessage);
@@ -130,20 +138,22 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
             await LoggingService.logAction(
                 currentUser,
                 togglingShop.isActive ? LogType.SHOP_DEACTIVATED : LogType.SHOP_ACTIVATED,
-                `تم ${togglingShop.isActive ? 'إلغاء تفعيل' : 'تفعيل'} متجر "${togglingShop.name}"`,
-                togglingShop.id
+                togglingShop.isActive ? 'logs.messages.shopDeactivated' : 'logs.messages.shopActivated',
+                togglingShop.id,
+                undefined,
+                { shopName: togglingShop.name }
             );
 
-            setSuccess(`تم ${togglingShop.isActive ? 'إلغاء تفعيل' : 'تفعيل'} متجر "${togglingShop.name}" بنجاح`);
+            setSuccess(togglingShop.isActive ? t('shops.messages.deactivated') : t('shops.messages.activated'));
             setTogglingShop(null);
             refreshShops(); // Refresh the data
 
         } catch (error: any) {
             console.error('Error toggling shop status:', error);
-            let errorMessage = 'حدث خطأ أثناء تحديث حالة المتجر';
+            let errorMessage = t('errors.general');
 
             if (error.message?.includes('active users')) {
-                errorMessage = 'لا يمكن إلغاء تفعيل متجر يحتوي على مستخدمين نشطين';
+                errorMessage = t('shops.messages.cannotDeactivate');
             }
 
             setError(errorMessage);
@@ -176,20 +186,25 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
             await LoggingService.logAction(
                 currentUser,
                 LogType.SHOP_DELETED,
-                `تم حذف متجر "${deletingShop.name}" نهائياً مع ${result.deletedCount.accounts} حساب و ${result.deletedCount.transactions} معاملة`,
-                deletingShop.id
+                'logs.messages.shopDeleted',
+                deletingShop.id,
+                {
+                    deletedAccounts: result.deletedCount.accounts,
+                    deletedTransactions: result.deletedCount.transactions
+                },
+                { shopName: deletingShop.name }
             );
 
-            setSuccess(`تم حذف متجر "${deletingShop.name}" وجميع بياناته بنجاح`);
+            setSuccess(t('shops.messages.deleted'));
             setDeletingShop(null);
             refreshShops(); // Refresh the data
 
         } catch (error: any) {
             console.error('Error deleting shop:', error);
-            let errorMessage = 'حدث خطأ أثناء حذف المتجر';
+            let errorMessage = t('errors.general');
 
             if (error.code === 'permission-denied') {
-                errorMessage = 'ليس لديك صلاحية لحذف هذا المتجر';
+                errorMessage = t('errors.permissionDenied');
             }
 
             setError(errorMessage);
@@ -216,7 +231,7 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
         return (
             <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                <span className="ml-3 text-lg">جاري تحميل المتاجر...</span>
+                <span className="ml-3 text-lg">{t('common.ui.loading')}</span>
             </div>
         );
     }
@@ -225,11 +240,11 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
         <div className="space-y-6">
             <div className="flex justify-between items-center gap-4 flex-wrap">
                 <div>
-                    <h2 className="text-2xl font-bold">إدارة المتاجر</h2>
+                    <h2 className="text-2xl font-bold">{t('shops.title')}</h2>
                     <p className="text-gray-600 mt-1">
-                        {shops.length > 0 ? `إجمالي المتاجر: ${shops.length}` : 'لا توجد متاجر'}
+                        {shops.length > 0 ? `${t('common.ui.total')}: ${shops.length}` : t('shops.list.empty')}
                         {shops.filter(s => s.isActive).length !== shops.length &&
-                            ` (${shops.filter(s => s.isActive).length} نشط)`
+                            ` (${shops.filter(s => s.isActive).length} ${t('shops.status.active')})`
                         }
                     </p>
                 </div>
@@ -243,7 +258,7 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
                         <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        تحديث البيانات
+                        {t('common.actions.refresh')}
                     </button>
 
                     {(currentUser.role === 'admin') && (
@@ -253,7 +268,7 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
                             className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-lg disabled:opacity-50"
                         >
                             <PlusIcon />
-                            <span>{isLoading ? 'جاري المعالجة...' : 'إضافة متجر جديد'}</span>
+                            <span>{isLoading ? t('common.ui.loading') : t('shops.actions.create')}</span>
                         </button>
                     )}
                 </div>
@@ -309,14 +324,14 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
             ) : (
                 <div className="bg-surface p-12 rounded-lg shadow-lg text-center">
                     <div className="text-6xl mb-4">🏪</div>
-                    <h3 className="text-xl font-semibold mb-2">لا توجد متاجر</h3>
-                    <p className="text-gray-600 mb-4">ابدأ بإنشاء متجرك الأول لإدارة العمليات المحاسبية</p>
+                    <h3 className="text-xl font-semibold mb-2">{t('shops.list.empty')}</h3>
+                    <p className="text-gray-600 mb-4">{t('shops.subtitle')}</p>
                     {currentUser.role === 'admin' && (
                         <button
                             onClick={() => handleOpenModal()}
                             className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg"
                         >
-                            إنشاء متجر جديد
+                            {t('shops.actions.create')}
                         </button>
                     )}
                 </div>
@@ -345,9 +360,9 @@ const ShopManagementPage: React.FC<ShopManagementPageProps> = ({
                     isOpen={!!togglingShop}
                     onClose={() => setTogglingShop(null)}
                     onConfirm={handleConfirmToggle}
-                    title={togglingShop.isActive ? 'تأكيد إلغاء التفعيل' : 'تأكيد التفعيل'}
-                    message={`هل أنت متأكد من ${togglingShop.isActive ? 'إلغاء تفعيل' : 'تفعيل'} متجر "${togglingShop.name}"؟`}
-                    confirmText={togglingShop.isActive ? 'إلغاء التفعيل' : 'تفعيل'}
+                    title={togglingShop.isActive ? t('common.ui.confirmation') : t('common.ui.confirmation')}
+                    message={t(togglingShop.isActive ? 'shops.messages.deactivateConfirm' : 'shops.messages.activateConfirm')}
+                    confirmText={t(togglingShop.isActive ? 'shops.actions.deactivate' : 'shops.actions.activate')}
                     isDestructive={togglingShop.isActive}
                 />
             )}

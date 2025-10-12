@@ -1,0 +1,66 @@
+{
+  "title": "Financial Year Management",
+  "subtitle": "Create and manage financial years and closing procedures",
+  "list": {
+    "title": "Financial Years",
+    "columns": {
+      "name": "Year Name",
+      "period": "Period",
+      "status": "Status",
+      "openingStock": "Opening Stock",
+      "closingStock": "Closing Stock",
+      "actions": "Actions"
+    },
+    "empty": "No financial years available"
+  },
+  "status": {
+    "open": "Open",
+    "closed": "Closed"
+  },
+  "actions": {
+    "create": "Create Financial Year",
+    "edit": "Edit",
+    "close": "Close Year",
+    "viewReport": "View Report",
+    "transition": "Transfer Stock"
+  },
+  "form": {
+    "title": {
+      "create": "Create New Financial Year",
+      "edit": "Edit Financial Year"
+    },
+    "name": "Financial Year Name",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "openingStockValue": "Opening Stock Value",
+    "closingStockValue": "Closing Stock Value",
+    "notes": "Notes"
+  },
+  "messages": {
+    "created": "Financial year created successfully",
+    "updated": "Financial year updated successfully",
+    "closed": "Financial year closed successfully",
+    "closeConfirm": "Do you want to close this financial year? This action cannot be undone",
+    "closeWarning": "Closing stock and opening stock accounts will be created for the next year",
+    "alreadyOpen": "A financial year is already open",
+    "cannotEdit": "Cannot edit a closed financial year"
+  },
+  "validation": {
+    "nameRequired": "Financial year name is required",
+    "startDateRequired": "Start date is required",
+    "endDateRequired": "End date is required",
+    "endAfterStart": "End date must be after start date",
+    "openingStockRequired": "Opening stock value is required",
+    "closingStockRequired": "Closing stock value is required to close the year"
+  },
+  "stockTransition": {
+    "title": "Stock Transfer",
+    "description": "Transfer closing stock to opening stock for the next year",
+    "fromYear": "From Year",
+    "toYear": "To Year",
+    "closingValue": "Stock Value",
+    "execute": "Execute Transfer",
+    "success": "Stock transferred successfully",
+    "confirm": "Do you want to transfer stock from {fromYear} to {toYear}?"
+  }
+}

@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Account, Transaction, Shop, TransactionType } from '../types';
 import { formatCurrency } from '../utils/formatting';
 import { exportTableToPDFEnhanced } from '../utils/pdfExportEnhanced';
+import { useTranslation } from '../i18n/useTranslation';
+import { getBilingualText } from '../utils/bilingual';
 
 const ExportIcon = () => <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>;
 
@@ -12,6 +14,7 @@ interface StatementPageProps {
 }
 
 const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, activeShop }) => {
+    const { t, language } = useTranslation();
     const [selectedAccountId, setSelectedAccountId] = useState<string>('');
     const [filterType, setFilterType] = useState<'range' | 'day'>('range');
     
@@ -27,13 +30,15 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
         // Fix: Changed JSX.Element to React.ReactElement to resolve namespace issue.
         const options: React.ReactElement[] = [];
         parentAccounts.forEach(parent => {
-            options.push(<option key={parent.id} value={parent.id} className="font-bold">{parent.name}</option>);
+            const parentName = getBilingualText(parent.name, parent.nameEn, language);
+            options.push(<option key={parent.id} value={parent.id} className="font-bold">{parentName}</option>);
             accounts.filter(a => a.parentId === parent.id).sort((a,b) => a.name.localeCompare(b.name)).forEach(child => {
-                options.push(<option key={child.id} value={child.id}>&nbsp;&nbsp;&nbsp;{child.name}</option>);
+                const childName = getBilingualText(child.name, child.nameEn, language);
+                options.push(<option key={child.id} value={child.id}>&nbsp;&nbsp;&nbsp;{childName}</option>);
             });
         });
         return options;
-    }, [accounts]);
+    }, [accounts, language]);
 
     const statementData = useMemo(() => {
         if (!selectedAccountId) return null;
@@ -76,7 +81,10 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
         let totalCredit = 0;
         let runningBalance = openingBalance;
 
-        const getAccountName = (id: string) => accounts.find(a => a.id === id)?.name || 'غير معروف';
+        const getAccountName = (id: string) => {
+            const account = accounts.find(a => a.id === id);
+            return account ? getBilingualText(account.name, account.nameEn, language) : t('statements.unknown');
+        };
 
         const rows = relevantTransactions.filter(t => {
             const tDate = new Date(t.date);
@@ -95,46 +103,51 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
             totalCredit += credit;
             runningBalance += (debit - credit);
 
-            let context = t.description;
-            if (t.type === TransactionType.TRANSFER) {
-                const fromAccId = t.entries.find(e => e.amount < 0)?.accountId;
-                const toAccId = t.entries.find(e => e.amount > 0)?.accountId;
+            let context = tx.description;
+            if (tx.type === TransactionType.TRANSFER) {
+                const fromAccId = tx.entries.find(e => e.amount < 0)?.accountId;
+                const toAccId = tx.entries.find(e => e.amount > 0)?.accountId;
                 if (fromAccId === selectedAccountId) { // We are the 'from'
-                    context = `تحويل إلى: ${getAccountName(toAccId!)}`;
+                    context = t('statements.transfer.to', { account: getAccountName(toAccId!) });
                 } else { // We are the 'to'
-                    context = `تحويل من: ${getAccountName(fromAccId!)}`;
+                    context = t('statements.transfer.from', { account: getAccountName(fromAccId!) });
                 }
             } else {
-                 const otherPartyId = t.partyId || t.categoryId;
+                 const otherPartyId = tx.partyId || tx.categoryId;
                  if (otherPartyId && otherPartyId !== selectedAccountId) {
-                    context = `${t.type} / ${getAccountName(otherPartyId)} - ${t.description}`;
+                    context = `${tx.type} / ${getAccountName(otherPartyId)} - ${tx.description}`;
                  }
             }
-            
+
             return {
-                id: t.id,
-                date: new Date(t.date).toLocaleDateString('ar-EG'),
+                id: tx.id,
+                date: new Date(tx.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US'),
                 context,
                 debit,
                 credit,
                 balance: runningBalance
             };
         });
-        
+
         const closingBalance = openingBalance + totalDebit - totalCredit;
-        
+
         return { openingBalance, rows, totalDebit, totalCredit, closingBalance };
 
-    }, [selectedAccountId, filterType, singleDate, startDate, endDate, accounts, transactions]);
+    }, [selectedAccountId, filterType, singleDate, startDate, endDate, accounts, transactions, language, t]);
 
     const handleExportPDF = async () => {
         if (!statementData || !selectedAccountId) return;
 
         try {
             const account = accounts.find(a => a.id === selectedAccountId);
+            const accountName = account ? getBilingualText(account.name, account.nameEn, language) : '';
 
-            // Prepare headers
-            const headers = ['الرصيد', 'دائن', 'مدين', 'البيان', 'التاريخ'];
+            // Prepare headers based on language
+            const headers = language === 'ar'
+                ? ['الرصيد', 'دائن', 'مدين', 'البيان', 'التاريخ']
+                : [t('statements.table.columns.balance'), t('statements.table.columns.credit'),
+                   t('statements.table.columns.debit'), t('statements.table.columns.context'),
+                   t('statements.table.columns.date')];
 
             // Prepare data
             const tableData = statementData.rows.map(row => [
@@ -146,22 +159,24 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
             ]);
 
             // Title
-            const title = `كشف حساب: ${account?.name || ''}`;
+            const title = `${t('statements.title')}: ${accountName}`;
 
             // Date range
+            const locale = language === 'ar' ? 'ar-SA' : 'en-US';
             const dateRange = filterType === 'day'
-                ? new Date(singleDate).toLocaleDateString('ar-SA')
-                : `من ${new Date(startDate).toLocaleDateString('ar-SA')} إلى ${new Date(endDate).toLocaleDateString('ar-SA')}`;
+                ? new Date(singleDate).toLocaleDateString(locale)
+                : `${t('statements.dateLabels.from')} ${new Date(startDate).toLocaleDateString(locale)} ${t('statements.dateLabels.to')} ${new Date(endDate).toLocaleDateString(locale)}`;
 
             // Subtitle
-            const subtitle = activeShop ? `${activeShop.name} - ${dateRange}` : dateRange;
+            const shopName = activeShop ? getBilingualText(activeShop.name, activeShop.nameEn, language) : '';
+            const subtitle = activeShop ? `${shopName} - ${dateRange}` : dateRange;
 
             // Summary data
             const summary = [
-                { label: 'الرصيد الافتتاحي', value: formatCurrency(statementData.openingBalance) },
-                { label: 'إجمالي مدين', value: formatCurrency(statementData.totalDebit) },
-                { label: 'إجمالي دائن', value: formatCurrency(statementData.totalCredit) },
-                { label: 'الرصيد الختامي', value: formatCurrency(statementData.closingBalance) }
+                { label: t('statements.summary.openingBalance'), value: formatCurrency(statementData.openingBalance) },
+                { label: t('statements.summary.totalDebit'), value: formatCurrency(statementData.totalDebit) },
+                { label: t('statements.summary.totalCredit'), value: formatCurrency(statementData.totalCredit) },
+                { label: t('statements.summary.closingBalance'), value: formatCurrency(statementData.closingBalance) }
             ];
 
             // Export to PDF using the enhanced method with Arabic support
@@ -169,7 +184,7 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                 headers,
                 tableData,
                 title,
-                `statement_${account?.name}_${new Date().toISOString().split('T')[0]}.pdf`,
+                `statement_${accountName}_${new Date().toISOString().split('T')[0]}.pdf`,
                 {
                     subtitle,
                     summary,
@@ -178,65 +193,65 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
             );
         } catch (error) {
             console.error('Error generating PDF:', error);
-            alert('حدث خطأ أثناء تصدير كشف الحساب');
+            alert(t('statements.messages.exportError'));
         }
     };
 
     return (
         <div className="space-y-6 text-text-primary">
             <div className="flex justify-between items-center gap-4 flex-wrap">
-                <h1 className="text-3xl font-bold">كشف حساب</h1>
+                <h1 className="text-3xl font-bold">{t('statements.title')}</h1>
                 {statementData && (
                      <button onClick={handleExportPDF} className="bg-accent hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-lg">
                         <ExportIcon />
-                        <span>تصدير PDF</span>
+                        <span>{t('statements.actions.exportPDF')}</span>
                     </button>
                 )}
             </div>
 
             <div className="bg-surface p-4 rounded-lg shadow-md flex gap-4 flex-wrap items-end">
                 <div className="flex-grow">
-                    <label className="text-sm text-text-secondary block mb-1">اختر الحساب</label>
+                    <label className="text-sm text-text-secondary block mb-1">{t('statements.selectAccount')}</label>
                     <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-lg py-2 px-4 focus:ring-primary focus:border-primary">
-                        <option value="">-- الرجاء اختيار حساب --</option>
+                        <option value="">{t('statements.selectAccountPlaceholder')}</option>
                         {accountOptions}
                     </select>
                 </div>
                 <div>
-                    <label className="text-sm text-text-secondary block mb-1">نوع الفترة</label>
+                    <label className="text-sm text-text-secondary block mb-1">{t('statements.filterType.label')}</label>
                     <div className="flex bg-background rounded-lg border border-gray-600 p-1">
-                        <button onClick={() => setFilterType('range')} className={`px-4 py-1 rounded-md text-sm ${filterType==='range' ? 'bg-primary' : ''}`}>فترة</button>
-                        <button onClick={() => setFilterType('day')} className={`px-4 py-1 rounded-md text-sm ${filterType==='day' ? 'bg-primary' : ''}`}>يوم</button>
+                        <button onClick={() => setFilterType('range')} className={`px-4 py-1 rounded-md text-sm ${filterType==='range' ? 'bg-primary' : ''}`}>{t('statements.filterType.range')}</button>
+                        <button onClick={() => setFilterType('day')} className={`px-4 py-1 rounded-md text-sm ${filterType==='day' ? 'bg-primary' : ''}`}>{t('statements.filterType.day')}</button>
                     </div>
                 </div>
                  {filterType === 'range' ? (
                     <div className="flex gap-2 items-end">
-                        <div><label className="text-sm text-text-secondary block mb-1">من</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-4 focus:ring-primary focus:border-primary" style={{colorScheme: 'dark'}}/></div>
-                        <div><label className="text-sm text-text-secondary block mb-1">إلى</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-4 focus:ring-primary focus:border-primary" style={{colorScheme: 'dark'}}/></div>
+                        <div><label className="text-sm text-text-secondary block mb-1">{t('statements.dateLabels.from')}</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-4 focus:ring-primary focus:border-primary" style={{colorScheme: 'dark'}}/></div>
+                        <div><label className="text-sm text-text-secondary block mb-1">{t('statements.dateLabels.to')}</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-4 focus:ring-primary focus:border-primary" style={{colorScheme: 'dark'}}/></div>
                     </div>
                  ) : (
-                    <div><label className="text-sm text-text-secondary block mb-1">تحديد اليوم</label><input type="date" value={singleDate} onChange={e => setSingleDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-4 focus:ring-primary focus:border-primary" style={{colorScheme: 'dark'}}/></div>
+                    <div><label className="text-sm text-text-secondary block mb-1">{t('statements.dateLabels.selectDay')}</label><input type="date" value={singleDate} onChange={e => setSingleDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-4 focus:ring-primary focus:border-primary" style={{colorScheme: 'dark'}}/></div>
                  )}
             </div>
 
             {!selectedAccountId ? (
                 <div className="text-center bg-surface p-12 rounded-lg">
-                    <p className="text-text-secondary">الرجاء اختيار حساب وتحديد فترة لعرض كشف الحساب.</p>
+                    <p className="text-text-secondary">{t('statements.messages.selectAccountPrompt')}</p>
                 </div>
             ) : statementData && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-surface p-4 rounded-lg text-center"><p className="text-sm text-text-secondary">الرصيد الافتتاحي</p><p className="text-xl font-bold">{formatCurrency(statementData.openingBalance)}</p></div>
-                        <div className="bg-surface p-4 rounded-lg text-center"><p className="text-sm text-text-secondary">إجمالي مدين</p><p className="text-xl font-bold text-green-400">{formatCurrency(statementData.totalDebit)}</p></div>
-                        <div className="bg-surface p-4 rounded-lg text-center"><p className="text-sm text-text-secondary">إجمالي دائن</p><p className="text-xl font-bold text-red-400">{formatCurrency(statementData.totalCredit)}</p></div>
-                        <div className="bg-surface p-4 rounded-lg text-center"><p className="text-sm text-text-secondary">الرصيد الختامي</p><p className="text-xl font-bold text-accent">{formatCurrency(statementData.closingBalance)}</p></div>
+                        <div className="bg-surface p-4 rounded-lg text-center"><p className="text-sm text-text-secondary">{t('statements.summary.openingBalance')}</p><p className="text-xl font-bold">{formatCurrency(statementData.openingBalance)}</p></div>
+                        <div className="bg-surface p-4 rounded-lg text-center"><p className="text-sm text-text-secondary">{t('statements.summary.totalDebit')}</p><p className="text-xl font-bold text-green-400">{formatCurrency(statementData.totalDebit)}</p></div>
+                        <div className="bg-surface p-4 rounded-lg text-center"><p className="text-sm text-text-secondary">{t('statements.summary.totalCredit')}</p><p className="text-xl font-bold text-red-400">{formatCurrency(statementData.totalCredit)}</p></div>
+                        <div className="bg-surface p-4 rounded-lg text-center"><p className="text-sm text-text-secondary">{t('statements.summary.closingBalance')}</p><p className="text-xl font-bold text-accent">{formatCurrency(statementData.closingBalance)}</p></div>
                     </div>
 
                     <div className="bg-surface p-6 rounded-lg shadow-lg">
-                        <h2 className="text-xl font-bold mb-4">الحركات</h2>
+                        <h2 className="text-xl font-bold mb-4">{t('statements.table.title')}</h2>
                         <div className="overflow-x-auto">
                             <table className="w-full text-right">
-                                <thead><tr className="border-b border-gray-700 text-text-secondary"><th className="p-3">التاريخ</th><th className="p-3">البيان</th><th className="p-3 text-left">مدين</th><th className="p-3 text-left">دائن</th><th className="p-3 text-left">الرصيد</th></tr></thead>
+                                <thead><tr className="border-b border-gray-700 text-text-secondary"><th className="p-3">{t('statements.table.columns.date')}</th><th className="p-3">{t('statements.table.columns.context')}</th><th className="p-3 text-left">{t('statements.table.columns.debit')}</th><th className="p-3 text-left">{t('statements.table.columns.credit')}</th><th className="p-3 text-left">{t('statements.table.columns.balance')}</th></tr></thead>
                                 <tbody>
                                     {statementData.rows.map(row => (
                                         <tr key={row.id} className="border-b border-gray-700 hover:bg-background/50">
@@ -248,7 +263,7 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                                         </tr>
                                     ))}
                                     {statementData.rows.length === 0 && (
-                                        <tr><td colSpan={5} className="text-center p-8 text-text-secondary">لا توجد حركات في الفترة المحددة.</td></tr>
+                                        <tr><td colSpan={5} className="text-center p-8 text-text-secondary">{t('statements.table.empty')}</td></tr>
                                     )}
                                 </tbody>
                             </table>

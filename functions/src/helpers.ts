@@ -124,11 +124,11 @@ export class NotificationHelper {
                         link: data?.url || '/notifications'
                     },
                     notification: {
-                        icon: '/vite.svg',
-                        badge: '/vite.svg',
+                        icon: '/logo.png',
+                        badge: '/logo.png',
                         requireInteraction: true,
-                        dir: 'rtl' as 'rtl',
-                        lang: 'ar'
+                        dir: 'ltr' as 'ltr',  // English LTR direction
+                        lang: 'en'  // English language
                     }
                 }
             });
@@ -173,11 +173,11 @@ export class NotificationHelper {
                         link: data?.url || '/notifications'
                     },
                     notification: {
-                        icon: '/vite.svg',
-                        badge: '/vite.svg',
+                        icon: '/logo.png',
+                        badge: '/logo.png',
                         requireInteraction: true,
-                        dir: 'rtl' as 'rtl',
-                        lang: 'ar'
+                        dir: 'ltr' as 'ltr',  // English LTR direction
+                        lang: 'en'  // English language
                     }
                 }
             };

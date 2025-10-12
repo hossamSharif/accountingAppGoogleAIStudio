@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Account, AccountType, AccountClassification, AccountNature, User } from '../types';
+import { useTranslation } from '../i18n/useTranslation';
+import { translateEnum, accountTypeTranslations, accountClassificationTranslations, accountNatureTranslations } from '../i18n/enumTranslations';
+import { getBilingualText } from '../utils/bilingual';
 
 interface AccountModalProps {
     isOpen: boolean;
@@ -11,6 +14,7 @@ interface AccountModalProps {
 }
 
 const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, accountToEdit, accounts, currentUser }) => {
+    const { t, language } = useTranslation();
     const [name, setName] = useState('');
     const [accountCode, setAccountCode] = useState('');
     const [parentId, setParentId] = useState<string>('');
@@ -129,12 +133,16 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
             role="dialog"
         >
             <div className="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md m-4 transform transition-all duration-300 scale-95 opacity-0 animate-fade-in-scale">
-                <h2 className="text-2xl font-bold mb-6">{accountToEdit ? 'تعديل الحساب' : 'إضافة حساب جديد'}</h2>
+                <h2 className="text-2xl font-bold mb-6">
+                    {accountToEdit ? t('accounts.form.title.edit') : t('accounts.form.title.create')}
+                </h2>
                 <form onSubmit={handleSubmit}>
                     <div className="space-y-4">
                         {!isMainAccount && (
                             <div>
-                                <label htmlFor="parentId" className="block text-sm font-medium text-text-secondary mb-1">الحساب الرئيسي</label>
+                                <label htmlFor="parentId" className="block text-sm font-medium text-text-secondary mb-1">
+                                    {t('accounts.form.parentAccount')}
+                                </label>
                                 <select
                                     id="parentId"
                                     value={parentId}
@@ -143,33 +151,39 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                                     required
                                 >
                                     {parentAccountOptions.map(pAcc => (
-                                        <option key={pAcc.id} value={pAcc.id}>{pAcc.name} ({pAcc.accountCode})</option>
+                                        <option key={pAcc.id} value={pAcc.id}>
+                                            {getBilingualText(pAcc.name, pAcc.nameEn, language)} ({pAcc.accountCode})
+                                        </option>
                                     ))}
                                 </select>
                             </div>
                         )}
                         <div className="grid grid-cols-2 gap-4">
                              <div>
-                                <label htmlFor="accountCode" className="block text-sm font-medium text-text-secondary mb-1">رمز الحساب</label>
+                                <label htmlFor="accountCode" className="block text-sm font-medium text-text-secondary mb-1">
+                                    {t('accounts.form.accountCode')}
+                                </label>
                                 <input
                                     type="text"
                                     id="accountCode"
                                     value={accountCode}
                                     onChange={(e) => setAccountCode(e.target.value)}
-                                    placeholder="e.g., 5101"
+                                    placeholder={t('accounts.form.accountCodePlaceholder')}
                                     className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     required
                                     disabled={isMainAccount && !isAdmin}
                                 />
                             </div>
                             <div>
-                                <label htmlFor="accountName" className="block text-sm font-medium text-text-secondary mb-1">اسم الحساب</label>
+                                <label htmlFor="accountName" className="block text-sm font-medium text-text-secondary mb-1">
+                                    {t('accounts.form.accountName')}
+                                </label>
                                 <input
                                     type="text"
                                     id="accountName"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    placeholder="e.g., Rent Expense"
+                                    placeholder={t('accounts.form.accountNamePlaceholder')}
                                     className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                     required
                                     disabled={isMainAccount && !isAdmin}
@@ -179,7 +193,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                         <div className="grid grid-cols-2 gap-4">
                              <div>
                                 <label className="block text-sm font-medium text-text-secondary mb-1">
-                                    التصنيف {canEditParentFields ? '' : '(تلقائي)'}
+                                    {t('accounts.form.classification')} {canEditParentFields ? '' : `(${t('accounts.form.automatic')})`}
                                 </label>
                                 {canEditParentFields ? (
                                     <select
@@ -189,16 +203,23 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                                         required
                                     >
                                         {Object.values(AccountClassification).map((classValue) => (
-                                            <option key={classValue} value={classValue}>{classValue}</option>
+                                            <option key={classValue} value={classValue}>
+                                                {translateEnum(classValue, accountClassificationTranslations, language)}
+                                            </option>
                                         ))}
                                     </select>
                                 ) : (
-                                    <input type="text" value={classification} readOnly className="w-full bg-background/50 border border-gray-700 rounded-md p-2 text-text-secondary cursor-default" />
+                                    <input
+                                        type="text"
+                                        value={translateEnum(classification as AccountClassification, accountClassificationTranslations, language)}
+                                        readOnly
+                                        className="w-full bg-background/50 border border-gray-700 rounded-md p-2 text-text-secondary cursor-default"
+                                    />
                                 )}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary mb-1">
-                                    الطبيعة {canEditParentFields ? '' : '(تلقائي)'}
+                                    {t('accounts.form.nature')} {canEditParentFields ? '' : `(${t('accounts.form.automatic')})`}
                                 </label>
                                 {canEditParentFields ? (
                                     <select
@@ -208,11 +229,18 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                                         required
                                     >
                                         {Object.values(AccountNature).map((natureValue) => (
-                                            <option key={natureValue} value={natureValue}>{natureValue}</option>
+                                            <option key={natureValue} value={natureValue}>
+                                                {translateEnum(natureValue, accountNatureTranslations, language)}
+                                            </option>
                                         ))}
                                     </select>
                                 ) : (
-                                    <input type="text" value={nature} readOnly className="w-full bg-background/50 border border-gray-700 rounded-md p-2 text-text-secondary cursor-default" />
+                                    <input
+                                        type="text"
+                                        value={translateEnum(nature as AccountNature, accountNatureTranslations, language)}
+                                        readOnly
+                                        className="w-full bg-background/50 border border-gray-700 rounded-md p-2 text-text-secondary cursor-default"
+                                    />
                                 )}
                             </div>
                         </div>
@@ -221,7 +249,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                         {canEditParentFields && (
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary mb-1">
-                                    النوع
+                                    {t('accounts.form.type')}
                                 </label>
                                 <select
                                     value={type}
@@ -230,7 +258,9 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                                     required
                                 >
                                     {Object.values(AccountType).map((typeValue) => (
-                                        <option key={typeValue} value={typeValue}>{typeValue}</option>
+                                        <option key={typeValue} value={typeValue}>
+                                            {translateEnum(typeValue, accountTypeTranslations, language)}
+                                        </option>
                                     ))}
                                 </select>
                             </div>
@@ -238,13 +268,15 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
 
                         {!accountToEdit && (
                             <div>
-                                <label htmlFor="openingBalance" className="block text-sm font-medium text-text-secondary mb-1">الرصيد الافتتاحي (اختياري)</label>
+                                <label htmlFor="openingBalance" className="block text-sm font-medium text-text-secondary mb-1">
+                                    {t('accounts.form.openingBalance')}
+                                </label>
                                 <input
                                     type="number"
                                     id="openingBalance"
                                     value={openingBalance}
                                     onChange={(e) => setOpeningBalance(e.target.value)}
-                                    placeholder="e.g., 1500 for Debit, -500 for Credit"
+                                    placeholder={t('accounts.form.openingBalancePlaceholder')}
                                     className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
                                 />
                             </div>
@@ -259,7 +291,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                                     className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                                 />
                                 <label htmlFor="isActive" className="mr-2 block text-sm text-text-primary">
-                                    الحساب نشط
+                                    {t('accounts.form.isActive')}
                                 </label>
                             </div>
                         )}
@@ -270,14 +302,14 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                             onClick={onClose}
                             className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
                         >
-                            إلغاء
+                            {t('accounts.form.cancel')}
                         </button>
                         <button
                             type="submit"
                             className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={isMainAccount}
                         >
-                            {accountToEdit ? 'حفظ التعديلات' : 'إضافة الحساب'}
+                            {accountToEdit ? t('accounts.form.saveChanges') : t('accounts.form.addAccount')}
                         </button>
                     </div>
                 </form>

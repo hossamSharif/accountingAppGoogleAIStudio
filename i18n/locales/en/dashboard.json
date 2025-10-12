@@ -1,0 +1,33 @@
+{
+  "title": "Dashboard",
+  "dateNavigator": {
+    "today": "Today",
+    "selectDate": "Select Date"
+  },
+  "stats": {
+    "sales": "Sales",
+    "purchases": "Purchases",
+    "expenses": "Expenses",
+    "profit": "Profit",
+    "loss": "Loss",
+    "cashBalance": "Cash Balance",
+    "bankBalance": "Bank Balance",
+    "daily": "Daily",
+    "total": "Total"
+  },
+  "actions": {
+    "addTransaction": "Add Transaction",
+    "addAccount": "Add Account",
+    "viewTransactions": "View All Transactions",
+    "viewAccounts": "View All Accounts"
+  },
+  "recentTransactions": {
+    "title": "Recent Transactions",
+    "noTransactions": "No transactions for this day",
+    "viewAll": "View All"
+  },
+  "warnings": {
+    "noFinancialYear": "No open financial year",
+    "createFinancialYear": "Please create a financial year to begin"
+  }
+}

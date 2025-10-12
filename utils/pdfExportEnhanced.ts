@@ -363,11 +363,11 @@ export const createEnhancedPrintableTable = (
     options.headers.forEach(header => {
         const th = document.createElement('th');
         th.style.cssText = `
-            background-color: #0d9488;
+            background-color: #FDB913;
             color: white;
             padding: 3mm;
             text-align: right;
-            border: 0.5mm solid #0a7e73;
+            border: 0.5mm solid #E5A50D;
             font-size: 11pt;
             font-weight: bold;
             font-family: 'Noto Sans Arabic', sans-serif;
@@ -667,11 +667,11 @@ export const exportTableWithAutoTable = (
                 halign: 'right',
                 fontSize: 10,
                 cellPadding: 3,
-                lineColor: [13, 148, 136],
+                lineColor: [253, 185, 19],
                 lineWidth: 0.1
             },
             headStyles: {
-                fillColor: [13, 148, 136],
+                fillColor: [253, 185, 19],
                 textColor: [255, 255, 255],
                 fontSize: 11,
                 fontStyle: 'bold',

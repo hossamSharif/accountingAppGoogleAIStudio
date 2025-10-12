@@ -1,0 +1,11 @@
+{
+  "general": "An unexpected error occurred",
+  "permissionDenied": "You are not allowed to perform this action",
+  "databaseConnection": "Failed to connect to database",
+  "networkError": "Network connection error",
+  "validationError": "Data validation error",
+  "notFound": "Requested item not found",
+  "unauthorized": "Unauthorized",
+  "sessionExpired": "Session expired",
+  "serverError": "Server error"
+}

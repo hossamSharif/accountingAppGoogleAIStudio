@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, TransactionType, Account, AccountType, TransactionEntry, FinancialYear } from '../types';
+import { useTranslation } from '../i18n/useTranslation';
+import { translateEnum, transactionTypeTranslations } from '../i18n/enumTranslations';
+import { getBilingualText } from '../utils/bilingual';
+import { useConnectionStatus } from '../hooks/useConnectionStatus';
+import { OfflineManager } from '../services/offlineManager';
 
 const CloseIcon = () => (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -43,10 +48,14 @@ interface DailyEntryFormProps {
     openFinancialYear: FinancialYear | undefined;
     onAddAccount: (account: Omit<Account, 'id' | 'isActive' | 'shopId'>, forShopId?: string) => Account | null;
     selectedDate: Date;
+    activeShopId?: string;
+    currentUserId?: string;
 }
 
-const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddTransaction, onUpdateTransaction, transactionToEdit, accounts, openFinancialYear, onAddAccount, selectedDate }) => {
+const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddTransaction, onUpdateTransaction, transactionToEdit, accounts, openFinancialYear, onAddAccount, selectedDate, activeShopId, currentUserId }) => {
+    const { t, language } = useTranslation();
     const isEditMode = !!transactionToEdit;
+    const connectionStatus = useConnectionStatus();
 
     // Main state for the form
     const [formMode, setFormMode] = useState<FormMode>(TransactionType.SALE);
@@ -77,19 +86,19 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
 
     const { isFormDisabled, disabledMessage } = useMemo(() => {
         if (!openFinancialYear) {
-            return { isFormDisabled: true, disabledMessage: 'لا توجد سنة مالية مفتوحة. لا يمكن إضافة حركات.' };
+            return { isFormDisabled: true, disabledMessage: t('transactions.validation.noFinancialYear') };
         }
         const today = new Date();
         today.setHours(23, 59, 59, 999);
         const dateToCheck = isEditMode ? new Date(transactionToEdit.date) : selectedDate;
 
         if (!isEditMode && dateToCheck > today) {
-            return { isFormDisabled: true, disabledMessage: 'لا يمكن تسجيل حركات في تاريخ مستقبلي.' };
+            return { isFormDisabled: true, disabledMessage: t('transactions.validation.futureDate') };
         }
-        
+
         return { isFormDisabled: false, disabledMessage: '' };
 
-    }, [openFinancialYear, selectedDate, transactionToEdit, isEditMode]);
+    }, [openFinancialYear, selectedDate, transactionToEdit, isEditMode, t]);
 
     const {
         categoryAccounts,
@@ -227,7 +236,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
         const partyType = formMode === TransactionType.SALE ? AccountType.CUSTOMER : AccountType.SUPPLIER;
         const parentAccount = accounts.find(a => !a.parentId && a.type === partyType);
         if (!parentAccount) {
-            setError(`لا يوجد حساب رئيسي لـ "${partyType}". يرجى إضافته من شجرة الحسابات.`);
+            setError(t('transactions.validation.noParentAccount', { type: partyType }));
             return;
         }
         const newAccount = onAddAccount({
@@ -270,7 +279,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
 
         const parentAccount = accounts.find(a => !a.parentId && a.accountCode === parentCode && a.type === categoryType);
         if (!parentAccount) {
-            setError(`لا يوجد حساب رئيسي لـ "${categoryType}". يرجى إضافته من شجرة الحسابات.`);
+            setError(t('transactions.validation.noParentAccount', { type: categoryType }));
             return;
         }
 
@@ -291,7 +300,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         if (isFormDisabled) { setError(disabledMessage); return; }
@@ -305,35 +314,35 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
         if (formMode === 'Customer Payment' || formMode === 'Supplier Payment') {
             const amountNum = parseFloat(paymentForm.amount);
             if (!paymentForm.amount || isNaN(amountNum) || amountNum <= 0 || !paymentForm.partyId || !paymentForm.paymentAccountId) {
-                setError('الرجاء التأكد من اختيار الحسابات وإدخال مبلغ صحيح.'); return;
+                setError(t('transactions.validation.selectAccountsAndAmount')); return;
             }
             finalType = TransactionType.TRANSFER; // Both are handled as transfers
             finalTotalAmount = amountNum;
             const partyAccount = accounts.find(a => a.id === paymentForm.partyId);
 
-            if (formMode === 'Customer Payment') { // تحصيل من عميل
+            if (formMode === 'Customer Payment') {
                 entries.push({ accountId: paymentForm.paymentAccountId, amount: amountNum }); // Dr. Bank/Cash
                 entries.push({ accountId: paymentForm.partyId, amount: -amountNum }); // Cr. Customer
-                if (!description) setDescription(`تحصيل دفعة من العميل: ${partyAccount?.name || ''}`);
-            } else { // دفع لمورد
+                if (!description) setDescription(t('transactions.validation.customerCollectionDescription', { name: partyAccount?.name || '' }));
+            } else {
                 entries.push({ accountId: paymentForm.partyId, amount: amountNum }); // Dr. Supplier
                 entries.push({ accountId: paymentForm.paymentAccountId, amount: -amountNum }); // Cr. Bank/Cash
-                if (!description) setDescription(`سداد دفعة للمورد: ${partyAccount?.name || ''}`);
+                if (!description) setDescription(t('transactions.validation.supplierPaymentDescription', { name: partyAccount?.name || '' }));
             }
         } else if (formMode === TransactionType.TRANSFER) {
             const totalNum = parseFloat(totalAmount);
             if (!totalAmount || isNaN(totalNum) || totalNum <= 0 || !fromAccountId || !toAccountId) {
-                setError('الرجاء التأكد من إدخال مبلغ صحيح واختيار حسابات التحويل.'); return;
+                setError(t('transactions.validation.selectAccountsAndAmount')); return;
             }
-            if(fromAccountId === toAccountId) { setError('لا يمكن التحويل من وإلى نفس الحساب.'); return; }
+            if(fromAccountId === toAccountId) { setError(t('transactions.validation.sameAccount')); return; }
             entries.push({ accountId: toAccountId, amount: totalNum }, { accountId: fromAccountId, amount: -totalNum });
             finalTotalAmount = totalNum;
         } else {
             const totalNum = parseFloat(totalAmount);
             const paidNum = parseFloat(paidAmount);
-            if (!totalAmount || isNaN(totalNum) || totalNum <= 0 || !categoryId) { setError('الرجاء التأكد من إدخال مبلغ صحيح واختيار حساب الفئة.'); return; }
-            if (isNaN(paidNum) || paidNum < 0 || paidNum > totalNum) { setError('المبلغ المدفوع يجب أن يكون رقماً صحيحاً بين 0 والمبلغ الإجمالي.'); return; }
-            if (paidNum > 0 && !paymentAccountId) { setError('الرجاء اختيار حساب الدفع (الصندوق أو البنك).'); return; }
+            if (!totalAmount || isNaN(totalNum) || totalNum <= 0 || !categoryId) { setError(t('transactions.validation.selectCategoryAndAmount')); return; }
+            if (isNaN(paidNum) || paidNum < 0 || paidNum > totalNum) { setError(t('transactions.validation.paidAmountInvalid')); return; }
+            if (paidNum > 0 && !paymentAccountId) { setError(t('transactions.validation.selectPaymentAccount')); return; }
 
             // If partyId is empty, it's a cash transaction
             // If partyId has value, it's a credit transaction with a customer/supplier
@@ -358,14 +367,54 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                 case TransactionType.EXPENSE:
                     // Expenses don't have associated parties
                     finalPartyId = undefined;
-                    if(paidNum !== totalNum) { setError('في المصروفات، يجب أن يكون المبلغ المدفوع هو المبلغ الإجمالي.'); return; }
+                    if(paidNum !== totalNum) { setError(t('transactions.validation.expenseFullPayment')); return; }
                     entries.push({ accountId: categoryId, amount: totalNum }, { accountId: paymentAccountId, amount: -totalNum });
                     break;
             }
         }
-        
-        if (Math.abs(entries.reduce((s, en) => s + en.amount, 0)) > 0.001) { setError("خطأ في النظام: القيد غير متوازن."); return; }
-        
+
+        if (Math.abs(entries.reduce((s, en) => s + en.amount, 0)) > 0.001) { setError(t('transactions.validation.unbalancedEntry')); return; }
+
+        // Build transaction object
+        const newTransaction: Omit<Transaction, 'id' | 'shopId' | 'date'> = {
+            type: finalType,
+            description,
+            entries,
+            totalAmount: finalTotalAmount
+        };
+        if (finalCategoryId) newTransaction.categoryId = finalCategoryId;
+        if (finalPartyId) newTransaction.partyId = finalPartyId;
+
+        // Check if offline
+        if (!connectionStatus.isFullyOnline && !isEditMode) {
+            try {
+                // Queue transaction for later sync
+                await OfflineManager.addPendingTransaction(
+                    {
+                        ...newTransaction,
+                        date: selectedDate.toISOString(),
+                        shopId: activeShopId || accounts[0]?.shopId || ''
+                    } as any,
+                    currentUserId || '',
+                    activeShopId || accounts[0]?.shopId || ''
+                );
+
+                console.log('📥 Transaction queued for offline sync');
+
+                // Show success message
+                setError('');
+                onClose();
+
+                // Alert user
+                alert('تم حفظ المعاملة محلياً. سيتم المزامنة عند استعادة الاتصال.');
+            } catch (error) {
+                console.error('Error queuing transaction:', error);
+                setError('فشل في حفظ المعاملة محلياً');
+            }
+            return;
+        }
+
+        // Original online flow
         if (isEditMode) {
             const updatedTransaction: Transaction = {
                 ...transactionToEdit,
@@ -380,36 +429,26 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
 
             onUpdateTransaction(updatedTransaction);
         } else {
-            const newTransaction: Omit<Transaction, 'id' | 'shopId' | 'date'> = {
-                type: finalType,
-                description,
-                entries,
-                totalAmount: finalTotalAmount
-            };
-            // Only add categoryId and partyId if they have valid values
-            if (finalCategoryId) newTransaction.categoryId = finalCategoryId;
-            if (finalPartyId) newTransaction.partyId = finalPartyId;
-
             onAddTransaction(newTransaction);
         }
         onClose();
     };
     
-    const getPartyLabel = () => formMode === TransactionType.SALE ? 'العميل' : 'المورد';
+    const getPartyLabel = () => formMode === TransactionType.SALE ? t('transactions.form.customer') : t('transactions.form.supplier');
 
     const renderTransactionFields = () => (
         <>
             <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">حساب الفئة</label>
+                <label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.categoryAccount')}</label>
                 {/* Only show add category form for EXPENSE type */}
                 {formMode === TransactionType.EXPENSE && isAddingCategory ? (
                     <div className="border border-gray-500 rounded-md p-3 space-y-2 bg-background/50">
-                        <label className="block text-sm font-medium text-text-secondary">اسم فئة المصروفات الجديدة</label>
+                        <label className="block text-sm font-medium text-text-secondary">{t('transactions.form.newCategoryName')}</label>
                         <input
                             type="text"
                             value={newCategoryName}
                             onChange={(e) => setNewCategoryName(e.target.value)}
-                            placeholder="أدخل اسم فئة المصروفات"
+                            placeholder={t('transactions.form.enterCategoryName')}
                             className="w-full bg-background border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
                         />
                         <div className="flex gap-2 justify-end pt-1">
@@ -418,14 +457,14 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                 onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); }}
                                 className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
                             >
-                                إلغاء
+                                {t('transactions.form.cancel')}
                             </button>
                             <button
                                 type="button"
                                 onClick={handleAddNewCategory}
                                 className="bg-primary hover:bg-primary-dark text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
                             >
-                                حفظ
+                                {t('transactions.form.save')}
                             </button>
                         </div>
                     </div>
@@ -438,14 +477,14 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                             disabled={isFormDisabled || categoryAccounts.length === 0}
                             required
                         >
-                            <option value="" disabled>-- اختر حساب --</option>
+                            <option value="" disabled>{t('transactions.form.selectAccount')}</option>
                             {categoryAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                         </select>
                         {/* Only show + button for EXPENSE transactions */}
                         {formMode === TransactionType.EXPENSE && (
                             <button
                                 type="button"
-                                title="إضافة فئة مصروفات جديدة"
+                                title={t('transactions.form.addNewCategory')}
                                 onClick={() => setIsAddingCategory(true)}
                                 className="bg-accent hover:bg-blue-500 text-white font-bold p-2 rounded-md transition duration-300 flex-shrink-0 disabled:opacity-50"
                                 disabled={isFormDisabled}
@@ -458,10 +497,10 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                     </div>
                 )}
             </div>
-            {formMode !== TransactionType.EXPENSE && (isAddingParty ? (<div className="border border-gray-500 rounded-md p-3 space-y-2 bg-background/50"><label className="block text-sm font-medium text-text-secondary">اسم {getPartyLabel()} الجديد</label><input type="text" value={newPartyName} onChange={(e) => setNewPartyName(e.target.value)} placeholder={`أدخل اسم ${getPartyLabel()}`} className="w-full bg-background border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"/><div className="flex gap-2 justify-end pt-1"><button type="button" onClick={() => { setIsAddingParty(false); setNewPartyName('');}} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300">إلغاء</button><button type="button" onClick={handleAddNewParty} className="bg-primary hover:bg-primary-dark text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300">حفظ</button></div></div>) : (<div><label className="block text-sm font-medium text-text-secondary mb-1">{getPartyLabel()}</label><div className="flex items-center gap-2"><select value={partyId} onChange={(e) => setPartyId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required><option value="" disabled>-- اختر {getPartyLabel()} --</option>{partyAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select><button type="button" title={`إضافة ${getPartyLabel()} جديد`} onClick={() => setIsAddingParty(true)} className="bg-accent hover:bg-blue-500 text-white font-bold p-2 rounded-md transition duration-300 flex-shrink-0 disabled:opacity-50" disabled={isFormDisabled}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></button></div></div>))}
+            {formMode !== TransactionType.EXPENSE && (isAddingParty ? (<div className="border border-gray-500 rounded-md p-3 space-y-2 bg-background/50"><label className="block text-sm font-medium text-text-secondary">{formMode === TransactionType.SALE ? t('transactions.form.newCustomerName') : t('transactions.form.newSupplierName')}</label><input type="text" value={newPartyName} onChange={(e) => setNewPartyName(e.target.value)} placeholder={formMode === TransactionType.SALE ? t('transactions.form.enterCustomerName') : t('transactions.form.enterSupplierName')} className="w-full bg-background border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"/><div className="flex gap-2 justify-end pt-1"><button type="button" onClick={() => { setIsAddingParty(false); setNewPartyName('');}} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300">{t('transactions.form.cancel')}</button><button type="button" onClick={handleAddNewParty} className="bg-primary hover:bg-primary-dark text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300">{t('transactions.form.save')}</button></div></div>) : (<div><label className="block text-sm font-medium text-text-secondary mb-1">{getPartyLabel()}</label><div className="flex items-center gap-2"><select value={partyId} onChange={(e) => setPartyId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required><option value="" disabled>{formMode === TransactionType.SALE ? t('transactions.form.selectCustomer') : t('transactions.form.selectSupplier')}</option>{partyAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select><button type="button" title={formMode === TransactionType.SALE ? t('transactions.form.addNewCustomer') : t('transactions.form.addNewSupplier')} onClick={() => setIsAddingParty(true)} className="bg-accent hover:bg-blue-500 text-white font-bold p-2 rounded-md transition duration-300 flex-shrink-0 disabled:opacity-50" disabled={isFormDisabled}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></button></div></div>))}
             <div className={formMode === TransactionType.EXPENSE ? "" : "grid grid-cols-2 gap-3"}>
                 <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-1">المبلغ الإجمالي</label>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.totalAmount')}</label>
                     <input
                         type="number"
                         value={totalAmount}
@@ -472,7 +511,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                 setPaidAmount(e.target.value);
                             }
                         }}
-                        placeholder="أدخل المبلغ الإجمالي"
+                        placeholder={t('transactions.form.enterTotalAmount')}
                         className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50"
                         disabled={isFormDisabled}
                         required
@@ -482,12 +521,12 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                 </div>
                 {formMode !== TransactionType.EXPENSE && (
                     <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">المبلغ المدفوع</label>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.paidAmount')}</label>
                         <input
                             type="number"
                             value={paidAmount}
                             onChange={(e) => setPaidAmount(e.target.value)}
-                            placeholder="أدخل المبلغ المدفوع الآن"
+                            placeholder={t('transactions.form.enterPaidAmount')}
                             className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50"
                             disabled={isFormDisabled}
                             min="0"
@@ -496,30 +535,30 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                     </div>
                 )}
             </div>
-            {((formMode !== TransactionType.EXPENSE && parseFloat(paidAmount) > 0) || formMode === TransactionType.EXPENSE) && (<div><label className="block text-sm font-medium text-text-secondary mb-1">طريقة الدفع</label><select value={paymentAccountId} onChange={(e) => setPaymentAccountId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length === 0} required><option value="" disabled>-- اختر طريقة الدفع --</option>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>)}
+            {((formMode !== TransactionType.EXPENSE && parseFloat(paidAmount) > 0) || formMode === TransactionType.EXPENSE) && (<div><label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.paymentMethod')}</label><select value={paymentAccountId} onChange={(e) => setPaymentAccountId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length === 0} required><option value="" disabled>{t('transactions.form.selectPaymentMethod')}</option>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>)}
         </>
     );
 
     const renderTransferFields = () => (
         <>
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">من حساب</label><select value={fromAccountId} onChange={(e) => setFromAccountId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length < 2}>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">إلى حساب</label><select value={toAccountId} onChange={(e) => setToAccountId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length < 2}>{paymentAccounts.filter(acc => acc.id !== fromAccountId).map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">المبلغ</label><input type="number" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="أدخل مبلغ التحويل" className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required min="0.01" step="any" /></div>
+            <div><label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.fromAccount')}</label><select value={fromAccountId} onChange={(e) => setFromAccountId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length < 2}>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
+            <div><label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.toAccount')}</label><select value={toAccountId} onChange={(e) => setToAccountId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length < 2}>{paymentAccounts.filter(acc => acc.id !== fromAccountId).map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
+            <div><label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.amount')}</label><input type="number" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder={t('transactions.form.enterTransferAmount')} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required min="0.01" step="any" /></div>
         </>
     );
     
     const renderCustomerPaymentFields = () => (
         <>
             <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">العميل</label>
+                <label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.customer')}</label>
                 {isAddingParty ? (
                     <div className="border border-gray-500 rounded-md p-3 space-y-2 bg-background/50">
-                        <label className="block text-sm font-medium text-text-secondary">اسم العميل الجديد</label>
+                        <label className="block text-sm font-medium text-text-secondary">{t('transactions.form.newCustomerName')}</label>
                         <input
                             type="text"
                             value={newPartyName}
                             onChange={(e) => setNewPartyName(e.target.value)}
-                            placeholder="أدخل اسم العميل"
+                            placeholder={t('transactions.form.enterCustomerName')}
                             className="w-full bg-background border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
                         />
                         <div className="flex gap-2 justify-end pt-1">
@@ -528,7 +567,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                 onClick={() => { setIsAddingParty(false); setNewPartyName(''); }}
                                 className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
                             >
-                                إلغاء
+                                {t('transactions.form.cancel')}
                             </button>
                             <button
                                 type="button"
@@ -536,7 +575,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                     if (!newPartyName.trim() || !onAddAccount) return;
                                     const parentAccount = accounts.find(a => !a.parentId && a.type === AccountType.CUSTOMER);
                                     if (!parentAccount) {
-                                        setError('لا يوجد حساب رئيسي للعملاء. يرجى إضافته من شجرة الحسابات.');
+                                        setError(t('transactions.validation.noParentAccount', { type: AccountType.CUSTOMER }));
                                         return;
                                     }
                                     const newAccount = onAddAccount({
@@ -555,7 +594,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                 }}
                                 className="bg-primary hover:bg-primary-dark text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
                             >
-                                حفظ
+                                {t('transactions.form.save')}
                             </button>
                         </div>
                     </div>
@@ -568,12 +607,12 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                             disabled={isFormDisabled || customerAccounts.length === 0}
                             required
                         >
-                            <option value="" disabled>-- اختر عميل --</option>
+                            <option value="" disabled>{t('transactions.form.selectCustomer')}</option>
                             {customerAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                         </select>
                         <button
                             type="button"
-                            title="إضافة عميل جديد"
+                            title={t('transactions.form.addNewCustomer')}
                             onClick={() => setIsAddingParty(true)}
                             className="bg-accent hover:bg-blue-500 text-white font-bold p-2 rounded-md transition duration-300 flex-shrink-0 disabled:opacity-50"
                             disabled={isFormDisabled}
@@ -585,23 +624,23 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                     </div>
                 )}
             </div>
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">حساب الاستلام</label><select value={paymentForm.paymentAccountId} onChange={(e) => setPaymentForm(p => ({...p, paymentAccountId: e.target.value}))} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length === 0} required>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">المبلغ المحصّل</label><input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm(p => ({...p, amount: e.target.value}))} placeholder="أدخل المبلغ" className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required min="0.01" step="any" /></div>
+            <div><label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.receiptAccount')}</label><select value={paymentForm.paymentAccountId} onChange={(e) => setPaymentForm(p => ({...p, paymentAccountId: e.target.value}))} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length === 0} required>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
+            <div><label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.collectedAmount')}</label><input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm(p => ({...p, amount: e.target.value}))} placeholder={t('transactions.form.enterAmount')} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required min="0.01" step="any" /></div>
         </>
     );
 
     const renderSupplierPaymentFields = () => (
          <>
             <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">المورد</label>
+                <label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.supplier')}</label>
                 {isAddingParty ? (
                     <div className="border border-gray-500 rounded-md p-3 space-y-2 bg-background/50">
-                        <label className="block text-sm font-medium text-text-secondary">اسم المورد الجديد</label>
+                        <label className="block text-sm font-medium text-text-secondary">{t('transactions.form.newSupplierName')}</label>
                         <input
                             type="text"
                             value={newPartyName}
                             onChange={(e) => setNewPartyName(e.target.value)}
-                            placeholder="أدخل اسم المورد"
+                            placeholder={t('transactions.form.enterSupplierName')}
                             className="w-full bg-background border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
                         />
                         <div className="flex gap-2 justify-end pt-1">
@@ -610,7 +649,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                 onClick={() => { setIsAddingParty(false); setNewPartyName(''); }}
                                 className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
                             >
-                                إلغاء
+                                {t('transactions.form.cancel')}
                             </button>
                             <button
                                 type="button"
@@ -618,7 +657,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                     if (!newPartyName.trim() || !onAddAccount) return;
                                     const parentAccount = accounts.find(a => !a.parentId && a.type === AccountType.SUPPLIER);
                                     if (!parentAccount) {
-                                        setError('لا يوجد حساب رئيسي للموردين. يرجى إضافته من شجرة الحسابات.');
+                                        setError(t('transactions.validation.noParentAccount', { type: AccountType.SUPPLIER }));
                                         return;
                                     }
                                     const newAccount = onAddAccount({
@@ -637,7 +676,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                 }}
                                 className="bg-primary hover:bg-primary-dark text-white font-bold py-1 px-3 rounded-md text-sm transition duration-300"
                             >
-                                حفظ
+                                {t('transactions.form.save')}
                             </button>
                         </div>
                     </div>
@@ -650,12 +689,12 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                             disabled={isFormDisabled || supplierAccounts.length === 0}
                             required
                         >
-                            <option value="" disabled>-- اختر مورد --</option>
+                            <option value="" disabled>{t('transactions.form.selectSupplier')}</option>
                             {supplierAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                         </select>
                         <button
                             type="button"
-                            title="إضافة مورد جديد"
+                            title={t('transactions.form.addNewSupplier')}
                             onClick={() => setIsAddingParty(true)}
                             className="bg-accent hover:bg-blue-500 text-white font-bold p-2 rounded-md transition duration-300 flex-shrink-0 disabled:opacity-50"
                             disabled={isFormDisabled}
@@ -667,8 +706,8 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                     </div>
                 )}
             </div>
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">حساب الدفع</label><select value={paymentForm.paymentAccountId} onChange={(e) => setPaymentForm(p => ({...p, paymentAccountId: e.target.value}))} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length === 0} required>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
-            <div><label className="block text-sm font-medium text-text-secondary mb-1">المبلغ المدفوع</label><input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm(p => ({...p, amount: e.target.value}))} placeholder="أدخل المبلغ" className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required min="0.01" step="any" /></div>
+            <div><label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.paymentAccount')}</label><select value={paymentForm.paymentAccountId} onChange={(e) => setPaymentForm(p => ({...p, paymentAccountId: e.target.value}))} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled || paymentAccounts.length === 0} required>{paymentAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select></div>
+            <div><label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.paidAmount')}</label><input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm(p => ({...p, amount: e.target.value}))} placeholder={t('transactions.form.enterAmount')} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} required min="0.01" step="any" /></div>
         </>
     );
 
@@ -679,8 +718,8 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 transition-opacity duration-300" aria-modal="true" role="dialog">
             <div className="bg-surface rounded-lg shadow-xl w-full max-w-2xl transform transition-all duration-300 scale-95 opacity-0 animate-fade-in-scale flex flex-col max-h-[90vh]">
                 <div className="flex justify-between items-center p-4 border-b border-gray-700">
-                    <h2 className="text-xl font-bold">{isEditMode ? 'تعديل حركة' : 'إدخال حركة يومية جديدة'}</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-full" aria-label="إغلاق"><CloseIcon /></button>
+                    <h2 className="text-xl font-bold">{isEditMode ? t('transactions.form.title.edit') : t('transactions.form.title.create')}</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-full" aria-label={t('transactions.form.cancel')}><CloseIcon /></button>
                 </div>
 
                 {isFormDisabled && !openFinancialYear && (<div className="bg-yellow-500/20 text-yellow-300 text-sm p-3 rounded-md m-4 text-center">{disabledMessage}</div>)}
@@ -688,17 +727,17 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                 <form id="daily-entry-form" onSubmit={handleSubmit} className="space-y-4 p-6 overflow-y-auto">
                     {isFormDisabled && openFinancialYear && (<div className="bg-yellow-500/20 text-yellow-300 text-sm p-3 rounded-md text-center">{disabledMessage}</div>)}
                     <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">نوع الحركة</label>
+                        <label className="block text-sm font-medium text-text-secondary mb-2">{t('transactions.form.type')}</label>
                         <div className="overflow-x-auto pb-2">
                             <div className="flex gap-2 min-w-max">
                                 {[
-                                    { value: TransactionType.SALE, label: 'بيع', Icon: SaleIcon, color: 'from-green-500 to-green-600', hoverColor: 'hover:from-green-600 hover:to-green-700' },
-                                    { value: TransactionType.PURCHASE, label: 'شراء', Icon: PurchaseIcon, color: 'from-blue-500 to-blue-600', hoverColor: 'hover:from-blue-600 hover:to-blue-700' },
-                                    { value: TransactionType.EXPENSE, label: 'صرف', Icon: ExpenseIcon, color: 'from-red-500 to-red-600', hoverColor: 'hover:from-red-600 hover:to-red-700' },
-                                    { value: 'Customer Payment' as FormMode, label: 'تحصيل من عميل', Icon: CustomerPaymentIcon, color: 'from-teal-500 to-teal-600', hoverColor: 'hover:from-teal-600 hover:to-teal-700' },
-                                    { value: 'Supplier Payment' as FormMode, label: 'دفع لمورد', Icon: SupplierPaymentIcon, color: 'from-orange-500 to-orange-600', hoverColor: 'hover:from-orange-600 hover:to-orange-700' },
-                                    { value: TransactionType.TRANSFER, label: 'تحويل داخلي', Icon: TransferIcon, color: 'from-purple-500 to-purple-600', hoverColor: 'hover:from-purple-600 hover:to-purple-700' },
-                                ].map(({ value, label, Icon, color, hoverColor }) => (
+                                    { value: TransactionType.SALE, labelKey: 'transactions.types.SALE', Icon: SaleIcon, color: 'from-green-500 to-green-600', hoverColor: 'hover:from-green-600 hover:to-green-700' },
+                                    { value: TransactionType.PURCHASE, labelKey: 'transactions.types.PURCHASE', Icon: PurchaseIcon, color: 'from-blue-500 to-blue-600', hoverColor: 'hover:from-blue-600 hover:to-blue-700' },
+                                    { value: TransactionType.EXPENSE, labelKey: 'transactions.types.EXPENSE', Icon: ExpenseIcon, color: 'from-red-500 to-red-600', hoverColor: 'hover:from-red-600 hover:to-red-700' },
+                                    { value: 'Customer Payment' as FormMode, labelKey: 'transactions.form.customerPayment', Icon: CustomerPaymentIcon, color: 'from-yellow-500 to-yellow-600', hoverColor: 'hover:from-yellow-600 hover:to-yellow-700' },
+                                    { value: 'Supplier Payment' as FormMode, labelKey: 'transactions.form.supplierPayment', Icon: SupplierPaymentIcon, color: 'from-orange-500 to-orange-600', hoverColor: 'hover:from-orange-600 hover:to-orange-700' },
+                                    { value: TransactionType.TRANSFER, labelKey: 'transactions.form.internalTransfer', Icon: TransferIcon, color: 'from-purple-500 to-purple-600', hoverColor: 'hover:from-purple-600 hover:to-purple-700' },
+                                ].map(({ value, labelKey, Icon, color, hoverColor }) => (
                                     <button
                                         key={value}
                                         type="button"
@@ -715,7 +754,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                         `}
                                     >
                                         <Icon />
-                                        <span className="text-[10px] font-medium text-white text-center leading-tight">{label}</span>
+                                        <span className="text-[10px] font-medium text-white text-center leading-tight">{t(labelKey)}</span>
                                         {formMode === value && (
                                             <div className="absolute top-0.5 right-0.5">
                                                 <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -735,15 +774,15 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                     {[TransactionType.SALE, TransactionType.PURCHASE, TransactionType.EXPENSE].includes(formMode as TransactionType) && renderTransactionFields()}
 
                     <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">الوصف (اختياري)</label>
-                        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="وصف مختصر للحركة" rows={2} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} />
+                        <label className="block text-sm font-medium text-text-secondary mb-1">{t('transactions.form.description')}</label>
+                        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('transactions.form.descriptionPlaceholder')} rows={2} className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50" disabled={isFormDisabled} />
                     </div>
                     {error && <p className="text-red-400 text-sm text-center bg-red-500/10 p-2 rounded-md">{error}</p>}
                 </form>
 
                 <div className="flex justify-end space-x-4 space-x-reverse p-4 border-t border-gray-700 mt-auto">
-                    <button type="button" onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300">إلغاء</button>
-                    <button type="submit" form="daily-entry-form" className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled={isFormDisabled}>{isEditMode ? 'حفظ التعديلات' : 'إضافة الحركة'}</button>
+                    <button type="button" onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300">{t('transactions.form.cancel')}</button>
+                    <button type="submit" form="daily-entry-form" className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled={isFormDisabled}>{isEditMode ? t('transactions.form.saveChanges') : t('transactions.form.addTransaction')}</button>
                 </div>
             </div>
              <style>{`

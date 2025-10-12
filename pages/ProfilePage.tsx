@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { auth } from '../firebase';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { useTranslation } from '../i18n/useTranslation';
 
 
 const LockIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>;
@@ -14,6 +15,8 @@ interface ProfilePageProps {
 }
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, allUsers }) => {
+    const { t } = useTranslation();
+
     // State for profile info form
     const [name, setName] = useState(currentUser.name);
     const [email, setEmail] = useState(currentUser.email);
@@ -37,7 +40,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, al
         setProfileMessage(null);
 
         if (!name.trim() || !email.trim()) {
-            setProfileMessage({ type: 'error', text: 'الاسم والبريد الإلكتروني لا يمكن أن يكونا فارغين.' });
+            setProfileMessage({ type: 'error', text: t('profile.validation.nameEmailRequired') });
             return;
         }
 
@@ -46,12 +49,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, al
         );
 
         if (isEmailTaken) {
-            setProfileMessage({ type: 'error', text: 'هذا البريد الإلكتروني مستخدم بالفعل.' });
+            setProfileMessage({ type: 'error', text: t('profile.validation.emailTaken') });
             return;
         }
 
         onUpdateUser({ ...currentUser, name: name.trim(), email: email.trim() });
-        setProfileMessage({ type: 'success', text: 'تم تحديث الملف الشخصي بنجاح!' });
+        setProfileMessage({ type: 'success', text: t('profile.messages.updated') });
     };
 
     const handlePasswordChange = async (e: React.FormEvent) => {
@@ -60,43 +63,43 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, al
         setIsPasswordChanging(true);
 
         if (!currentPassword || !newPassword || !confirmPassword) {
-            setPasswordMessage({ type: 'error', text: 'يرجى ملء جميع الحقول.' });
+            setPasswordMessage({ type: 'error', text: t('profile.validation.fillAllFields') });
             setIsPasswordChanging(false);
             return;
         }
         if (newPassword !== confirmPassword) {
-            setPasswordMessage({ type: 'error', text: 'كلمة المرور الجديدة وتأكيدها غير متطابقين.' });
+            setPasswordMessage({ type: 'error', text: t('profile.messages.passwordMismatch') });
             setIsPasswordChanging(false);
             return;
         }
         if (newPassword.length < 6) {
-             setPasswordMessage({ type: 'error', text: 'يجب أن تكون كلمة المرور الجديدة 6 أحرف على الأقل.' });
+             setPasswordMessage({ type: 'error', text: t('profile.messages.passwordTooShort') });
              setIsPasswordChanging(false);
             return;
         }
 
         const user = auth.currentUser;
         if (!user || !user.email) {
-            setPasswordMessage({ type: 'error', text: 'لا يمكن تغيير كلمة المرور، المستخدم غير مسجل.' });
+            setPasswordMessage({ type: 'error', text: t('profile.messages.notAuthenticated') });
             setIsPasswordChanging(false);
             return;
         }
 
         const credential = EmailAuthProvider.credential(user.email, currentPassword);
-        
+
         try {
             await reauthenticateWithCredential(user, credential);
             await updatePassword(user, newPassword);
-            setPasswordMessage({ type: 'success', text: 'تم تغيير كلمة المرور بنجاح!' });
+            setPasswordMessage({ type: 'success', text: t('profile.messages.passwordChanged') });
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
         } catch (error: any) {
             console.error("Password change error:", error);
             if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                 setPasswordMessage({ type: 'error', text: 'كلمة المرور الحالية غير صحيحة.' });
+                 setPasswordMessage({ type: 'error', text: t('profile.messages.currentPasswordWrong') });
             } else {
-                 setPasswordMessage({ type: 'error', text: 'حدث خطأ أثناء تغيير كلمة المرور.' });
+                 setPasswordMessage({ type: 'error', text: t('profile.messages.passwordChangeError') });
             }
         } finally {
             setIsPasswordChanging(false);
@@ -107,14 +110,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, al
 
     return (
         <div className="max-w-2xl mx-auto space-y-8">
-            <h1 className="text-3xl font-bold mb-6">إدارة حساب المستخدم</h1>
+            <h1 className="text-3xl font-bold mb-6">{t('profile.title')}</h1>
 
             {isAdmin && (
                  <div className="bg-surface p-8 rounded-lg shadow-lg">
-                    <h2 className="text-xl font-bold mb-6 text-text-primary">معلومات الحساب</h2>
+                    <h2 className="text-xl font-bold mb-6 text-text-primary">{t('profile.personalInfo')}</h2>
                     <form onSubmit={handleProfileUpdate} className="space-y-6">
                          <div>
-                            <label htmlFor="fullName" className="block text-sm font-medium text-text-secondary mb-1">الاسم الكامل</label>
+                            <label htmlFor="fullName" className="block text-sm font-medium text-text-secondary mb-1">{t('profile.form.name')}</label>
                              <input
                                 type="text"
                                 id="fullName"
@@ -125,7 +128,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, al
                             />
                         </div>
                         <div className="relative">
-                            <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1">البريد الإلكتروني (للدخول)</label>
+                            <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1">{t('profile.form.email')}</label>
                              <div className="absolute inset-y-0 right-0 pr-3 top-7 flex items-center pointer-events-none">
                                 <UserIcon />
                             </div>
@@ -148,7 +151,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, al
                                 type="submit"
                                 className="bg-accent hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300 shadow-lg"
                             >
-                                حفظ معلومات الحساب
+                                {t('profile.buttons.saveProfile')}
                             </button>
                         </div>
                     </form>
@@ -156,10 +159,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, al
             )}
 
             <div className="bg-surface p-8 rounded-lg shadow-lg">
-                <h2 className="text-xl font-bold mb-6 text-text-primary">تغيير كلمة المرور</h2>
+                <h2 className="text-xl font-bold mb-6 text-text-primary">{t('profile.passwordChange')}</h2>
                 <form onSubmit={handlePasswordChange} className="space-y-6">
                     <div className="relative">
-                        <label htmlFor="currentPassword" className="block text-sm font-medium text-text-secondary mb-1">كلمة المرور الحالية</label>
+                        <label htmlFor="currentPassword" className="block text-sm font-medium text-text-secondary mb-1">{t('profile.form.currentPassword')}</label>
                         <div className="absolute inset-y-0 right-0 pr-3 top-7 flex items-center pointer-events-none">
                             <LockIcon />
                         </div>
@@ -173,7 +176,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, al
                         />
                     </div>
                      <div className="relative">
-                        <label htmlFor="newPassword" className="block text-sm font-medium text-text-secondary mb-1">كلمة المرور الجديدة</label>
+                        <label htmlFor="newPassword" className="block text-sm font-medium text-text-secondary mb-1">{t('profile.form.newPassword')}</label>
                          <div className="absolute inset-y-0 right-0 pr-3 top-7 flex items-center pointer-events-none">
                             <LockIcon />
                         </div>
@@ -187,7 +190,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, al
                         />
                     </div>
                      <div className="relative">
-                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-text-secondary mb-1">تأكيد كلمة المرور الجديدة</label>
+                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-text-secondary mb-1">{t('profile.form.confirmPassword')}</label>
                         <div className="absolute inset-y-0 right-0 pr-3 top-7 flex items-center pointer-events-none">
                             <LockIcon />
                         </div>
@@ -213,7 +216,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onUpdateUser, al
                             disabled={isPasswordChanging}
                             className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg transition duration-300 shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-wait"
                         >
-                            {isPasswordChanging ? 'جار الحفظ...' : 'حفظ كلمة المرور'}
+                            {isPasswordChanging ? t('profile.buttons.saving') : t('profile.buttons.savePassword')}
                         </button>
                     </div>
                 </form>

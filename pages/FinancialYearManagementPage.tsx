@@ -16,6 +16,8 @@ import {
 import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { formatCurrency } from '../utils/formatting';
+import { useTranslation } from '../i18n/useTranslation';
+import { getBilingualText } from '../utils/bilingual';
 
 // Icons
 const PlusIcon = () => (
@@ -71,6 +73,7 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
     shops,
     selectedShopId
 }) => {
+    const { t, language } = useTranslation();
     const [formData, setFormData] = useState<CreateFinancialYearData>({
         shopId: selectedShopId || '',
         name: '',
@@ -108,17 +111,17 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
     const validateForm = (): boolean => {
         const newErrors: { [key: string]: string } = {};
 
-        if (!formData.shopId) newErrors.shopId = 'يجب اختيار المتجر';
-        if (!formData.name.trim()) newErrors.name = 'يجب إدخال اسم السنة المالية';
-        if (!formData.startDate) newErrors.startDate = 'يجب إدخال تاريخ البداية';
-        if (!formData.endDate) newErrors.endDate = 'يجب إدخال تاريخ النهاية';
-        if (formData.openingStockValue < 0) newErrors.openingStockValue = 'قيمة المخزون لا يمكن أن تكون سالبة';
+        if (!formData.shopId) newErrors.shopId = t('shops.validation.selectShop');
+        if (!formData.name.trim()) newErrors.name = t('financialYears.validation.nameRequired');
+        if (!formData.startDate) newErrors.startDate = t('financialYears.validation.startDateRequired');
+        if (!formData.endDate) newErrors.endDate = t('financialYears.validation.endDateRequired');
+        if (formData.openingStockValue < 0) newErrors.openingStockValue = t('financialYears.validation.openingStockRequired');
 
         if (formData.startDate && formData.endDate) {
             const startDate = new Date(formData.startDate);
             const endDate = new Date(formData.endDate);
             if (endDate <= startDate) {
-                newErrors.endDate = 'تاريخ النهاية يجب أن يكون بعد تاريخ البداية';
+                newErrors.endDate = t('financialYears.validation.endAfterStart');
             }
         }
 
@@ -142,7 +145,7 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
                     <h2 className="text-2xl font-bold text-white flex items-center">
                         <CalendarIcon />
                         <span className="mr-2">
-                            {editingYear ? 'تعديل السنة المالية' : 'إضافة سنة مالية جديدة'}
+                            {editingYear ? t('financialYears.form.title.edit') : t('financialYears.form.title.create')}
                         </span>
                     </h2>
                 </div>
@@ -151,7 +154,7 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
                     {/* Shop Selection */}
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">
-                            المتجر *
+                            {t('shops.form.name')} *
                         </label>
                         <select
                             value={formData.shopId}
@@ -160,9 +163,9 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
                                 errors.shopId ? 'border-red-500' : 'border-gray-600'
                             }`}
                         >
-                            <option value="">اختر المتجر</option>
+                            <option value="">{t('shops.form.selectShop')}</option>
                             {shops.map(shop => (
-                                <option key={shop.id} value={shop.id}>{shop.name}</option>
+                                <option key={shop.id} value={shop.id}>{getBilingualText(shop.name, shop.nameEn, language)}</option>
                             ))}
                         </select>
                         {errors.shopId && <p className="text-red-500 text-sm mt-1">{errors.shopId}</p>}
@@ -171,13 +174,13 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
                     {/* Financial Year Name */}
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">
-                            اسم السنة المالية *
+                            {t('financialYears.form.name')} *
                         </label>
                         <input
                             type="text"
                             value={formData.name}
                             onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="مثال: السنة المالية 2024-2025"
+                            placeholder={language === 'ar' ? 'مثال: السنة المالية 2024-2025' : 'Example: Financial Year 2024-2025'}
                             className={`w-full bg-background border rounded-md p-3 text-text-primary focus:ring-2 focus:ring-primary focus:border-primary ${
                                 errors.name ? 'border-red-500' : 'border-gray-600'
                             }`}
@@ -189,7 +192,7 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">
-                                تاريخ البداية *
+                                {t('financialYears.form.startDate')} *
                             </label>
                             <input
                                 type="date"
@@ -204,7 +207,7 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
 
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">
-                                تاريخ النهاية *
+                                {t('financialYears.form.endDate')} *
                             </label>
                             <input
                                 type="date"
@@ -221,7 +224,7 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
                     {/* Opening Stock Value */}
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">
-                            قيمة مخزون أول المدة
+                            {t('financialYears.form.openingStockValue')}
                         </label>
                         <input
                             type="number"
@@ -233,6 +236,7 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
                             className={`w-full bg-background border rounded-md p-3 text-text-primary focus:ring-2 focus:ring-primary focus:border-primary ${
                                 errors.openingStockValue ? 'border-red-500' : 'border-gray-600'
                             }`}
+                            dir="ltr"
                         />
                         {errors.openingStockValue && <p className="text-red-500 text-sm mt-1">{errors.openingStockValue}</p>}
                     </div>
@@ -240,12 +244,12 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
                     {/* Notes */}
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">
-                            ملاحظات (اختياري)
+                            {t('financialYears.form.notes')} ({t('common.ui.optional')})
                         </label>
                         <textarea
                             value={formData.notes}
                             onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                            placeholder="ملاحظات إضافية..."
+                            placeholder={language === 'ar' ? 'ملاحظات إضافية...' : 'Additional notes...'}
                             rows={3}
                             className="w-full bg-background border border-gray-600 rounded-md p-3 text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
                         />
@@ -257,13 +261,13 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
                             onClick={onClose}
                             className="px-4 py-2 text-gray-400 border border-gray-600 rounded-lg hover:bg-gray-700 hover:text-white transition-colors"
                         >
-                            إلغاء
+                            {t('common.actions.cancel')}
                         </button>
                         <button
                             type="submit"
                             className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
                         >
-                            {editingYear ? 'تحديث' : 'إضافة'}
+                            {editingYear ? t('common.actions.update') : t('common.actions.save')}
                         </button>
                     </div>
                 </form>
@@ -273,6 +277,7 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
 };
 
 export const FinancialYearManagementPage: React.FC = () => {
+    const { t, language } = useTranslation();
     const [financialYears, setFinancialYears] = useState<FinancialYear[]>([]);
     const [filteredFinancialYears, setFilteredFinancialYears] = useState<FinancialYear[]>([]);
     const [shops, setShops] = useState<Shop[]>([]);
@@ -327,7 +332,7 @@ export const FinancialYearManagementPage: React.FC = () => {
                 setFilteredFinancialYears(sortedYears);
             } catch (error) {
                 console.error('Error loading initial data:', error);
-                showToast('خطأ في تحميل البيانات', 'error');
+                showToast(t('common.ui.error'), 'error');
             }
         });
     };
@@ -352,10 +357,10 @@ export const FinancialYearManagementPage: React.FC = () => {
                     );
                 }
 
-                showToast('تم إنشاء السنة المالية بنجاح', 'success');
+                showToast(t('financialYears.messages.created'), 'success');
             } catch (error) {
                 console.error('Error creating financial year:', error);
-                showToast('خطأ في إنشاء السنة المالية', 'error');
+                showToast(t('common.ui.error'), 'error');
             }
         });
     };
@@ -383,10 +388,10 @@ export const FinancialYearManagementPage: React.FC = () => {
                     );
                 }
 
-                showToast('تم تعديل السنة المالية بنجاح', 'success');
+                showToast(t('financialYears.messages.updated'), 'success');
             } catch (error) {
                 console.error('Error updating financial year:', error);
-                showToast('خطأ في تعديل السنة المالية', 'error');
+                showToast(t('common.ui.error'), 'error');
             }
         });
     };
@@ -416,21 +421,22 @@ export const FinancialYearManagementPage: React.FC = () => {
                     );
                 }
 
-                showToast('تم إغلاق السنة المالية بنجاح', 'success');
+                showToast(t('financialYears.messages.closed'), 'success');
             } catch (error) {
                 console.error('Error closing financial year:', error);
-                showToast('خطأ في إغلاق السنة المالية', 'error');
+                showToast(t('common.ui.error'), 'error');
             }
         });
     };
 
     const getShopName = (shopId: string): string => {
         const shop = shops.find(s => s.id === shopId);
-        return shop?.name || 'متجر غير محدد';
+        return shop ? getBilingualText(shop.name, shop.nameEn, language) : (language === 'ar' ? 'متجر غير محدد' : 'Unknown Shop');
     };
 
     const renderFinancialYearCard = (fy: FinancialYear) => {
         const isOpen = fy.status === 'open';
+        const locale = language === 'ar' ? 'ar-EG' : 'en-US';
 
         return (
             <div key={fy.id} className="bg-surface rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-700">
@@ -445,33 +451,33 @@ export const FinancialYearManagementPage: React.FC = () => {
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-gray-100 text-gray-800'
                         }`}>
-                            {isOpen ? 'مفتوحة' : 'مغلقة'}
+                            {t(`financialYears.status.${fy.status}`)}
                         </span>
                     </div>
                 </div>
 
                 <div className="space-y-2 mb-4 bg-background rounded-lg p-3">
                     <div className="flex justify-between items-center">
-                        <span className="text-sm text-text-secondary">تاريخ البداية:</span>
+                        <span className="text-sm text-text-secondary">{t('financialYears.form.startDate')}:</span>
                         <span className="text-sm font-medium text-text-primary" dir="ltr">
-                            {new Date(fy.startDate).toLocaleDateString('en-GB')}
+                            {new Date(fy.startDate).toLocaleDateString(locale)}
                         </span>
                     </div>
                     <div className="flex justify-between items-center">
-                        <span className="text-sm text-text-secondary">تاريخ النهاية:</span>
+                        <span className="text-sm text-text-secondary">{t('financialYears.form.endDate')}:</span>
                         <span className="text-sm font-medium text-text-primary" dir="ltr">
-                            {new Date(fy.endDate).toLocaleDateString('en-GB')}
+                            {new Date(fy.endDate).toLocaleDateString(locale)}
                         </span>
                     </div>
                     <div className="flex justify-between items-center">
-                        <span className="text-sm text-text-secondary">مخزون أول المدة:</span>
+                        <span className="text-sm text-text-secondary">{t('financialYears.list.columns.openingStock')}:</span>
                         <span className="text-sm font-medium text-primary">
                             {formatCurrency(fy.openingStockValue)}
                         </span>
                     </div>
                     {fy.closingStockValue !== undefined && (
                         <div className="flex justify-between items-center">
-                            <span className="text-sm text-text-secondary">مخزون آخر المدة:</span>
+                            <span className="text-sm text-text-secondary">{t('financialYears.list.columns.closingStock')}:</span>
                             <span className="text-sm font-medium text-green-400">
                                 {formatCurrency(fy.closingStockValue)}
                             </span>
@@ -493,7 +499,7 @@ export const FinancialYearManagementPage: React.FC = () => {
                                 className="px-3 py-1.5 bg-orange-600 text-white rounded hover:bg-orange-700 flex items-center text-sm transition-colors"
                             >
                                 <LockClosedIcon />
-                                <span className="mr-1">إغلاق السنة</span>
+                                <span className="mr-1">{t('financialYears.actions.close')}</span>
                             </button>
                         </>
                     )}
@@ -502,12 +508,12 @@ export const FinancialYearManagementPage: React.FC = () => {
                         onClick={() => setEditingYear(fy)}
                         className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm transition-colors"
                     >
-                        تعديل
+                        {t('financialYears.actions.edit')}
                     </button>
 
                     <button className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 flex items-center text-sm transition-colors">
                         <TrendingUpIcon />
-                        <span className="mr-1">التقارير</span>
+                        <span className="mr-1">{t('financialYears.actions.viewReport')}</span>
                     </button>
                 </div>
             </div>
@@ -517,9 +523,9 @@ export const FinancialYearManagementPage: React.FC = () => {
     const renderEmptyState = () => (
         <div className="text-center py-12 bg-surface rounded-lg shadow-md">
             <CalendarIcon />
-            <h3 className="mt-2 text-sm font-medium text-text-primary">لا توجد سنوات مالية</h3>
+            <h3 className="mt-2 text-sm font-medium text-text-primary">{t('financialYears.list.empty')}</h3>
             <p className="mt-1 text-sm text-text-secondary">
-                ابدأ بإنشاء سنة مالية جديدة لإدارة حساباتك
+                {language === 'ar' ? 'ابدأ بإنشاء سنة مالية جديدة لإدارة حساباتك' : 'Start by creating a new financial year to manage your accounts'}
             </p>
             <div className="mt-6">
                 <button
@@ -527,7 +533,7 @@ export const FinancialYearManagementPage: React.FC = () => {
                     className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium"
                 >
                     <PlusIcon />
-                    إنشاء سنة مالية
+                    {t('financialYears.actions.create')}
                 </button>
             </div>
         </div>
@@ -552,32 +558,37 @@ export const FinancialYearManagementPage: React.FC = () => {
         <div className="p-6 space-y-6">
             {/* Header */}
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-text-primary">إدارة السنوات المالية</h1>
+                <div>
+                    <h1 className="text-3xl font-bold text-text-primary">{t('financialYears.title')}</h1>
+                    <p className="text-text-secondary mt-1">{t('financialYears.subtitle')}</p>
+                </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
                     className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-lg transition-colors"
                 >
                     <PlusIcon />
-                    <span>إنشاء سنة مالية جديدة</span>
+                    <span>{t('financialYears.actions.create')}</span>
                 </button>
             </div>
 
             {/* Shop Filter */}
             <div className="bg-surface rounded-lg shadow p-4">
                 <div className="flex items-center space-x-4 space-x-reverse">
-                    <label className="text-sm font-medium text-text-secondary">تصفية حسب المتجر:</label>
+                    <label className="text-sm font-medium text-text-secondary">
+                        {language === 'ar' ? 'تصفية حسب المتجر:' : 'Filter by shop:'}
+                    </label>
                     <select
                         value={selectedShopFilter}
                         onChange={(e) => setSelectedShopFilter(e.target.value)}
                         className="bg-background border border-gray-600 rounded-md p-2 text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
                     >
-                        <option value="all">جميع المتاجر</option>
+                        <option value="all">{language === 'ar' ? 'جميع المتاجر' : 'All Shops'}</option>
                         {shops.map(shop => (
-                            <option key={shop.id} value={shop.id}>{shop.name}</option>
+                            <option key={shop.id} value={shop.id}>{getBilingualText(shop.name, shop.nameEn, language)}</option>
                         ))}
                     </select>
                     <span className="text-sm text-text-secondary">
-                        ({filteredFinancialYears.length} من {financialYears.length} سنة مالية)
+                        ({filteredFinancialYears.length} {language === 'ar' ? 'من' : 'of'} {financialYears.length} {language === 'ar' ? 'سنة مالية' : 'financial years'})
                     </span>
                 </div>
             </div>
@@ -589,9 +600,11 @@ export const FinancialYearManagementPage: React.FC = () => {
                 ) : (
                     <div className="text-center py-12 bg-surface rounded-lg shadow-md">
                         <CalendarIcon />
-                        <h3 className="mt-2 text-sm font-medium text-text-primary">لا توجد سنوات مالية لهذا المتجر</h3>
+                        <h3 className="mt-2 text-sm font-medium text-text-primary">
+                            {language === 'ar' ? 'لا توجد سنوات مالية لهذا المتجر' : 'No financial years for this shop'}
+                        </h3>
                         <p className="mt-1 text-sm text-text-secondary">
-                            اختر متجر آخر أو أضف سنة مالية جديدة لهذا المتجر
+                            {language === 'ar' ? 'اختر متجر آخر أو أضف سنة مالية جديدة لهذا المتجر' : 'Select another shop or add a new financial year for this shop'}
                         </p>
                     </div>
                 )
@@ -619,10 +632,10 @@ export const FinancialYearManagementPage: React.FC = () => {
                     isOpen={true}
                     onClose={() => setClosingYear(null)}
                     onConfirm={() => handleCloseFinancialYear(closingYear.id)}
-                    title="إغلاق السنة المالية"
-                    message={`هل أنت متأكد من إغلاق السنة المالية "${closingYear.name}"؟ لن تتمكن من إضافة معاملات جديدة بعد الإغلاق.`}
-                    confirmText="إغلاق السنة"
-                    cancelText="إلغاء"
+                    title={t('financialYears.messages.closeConfirm')}
+                    message={t('financialYears.messages.closeWarning')}
+                    confirmText={t('financialYears.actions.close')}
+                    cancelText={t('common.actions.cancel')}
                 />
             )}
         </div>

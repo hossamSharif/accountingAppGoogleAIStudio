@@ -1,0 +1,35 @@
+{
+  "title": "إدارة حساب المستخدم",
+  "personalInfo": "معلومات الحساب",
+  "accountSettings": "إعدادات الحساب",
+  "passwordChange": "تغيير كلمة المرور",
+  "form": {
+    "name": "الاسم الكامل",
+    "email": "البريد الإلكتروني (للدخول)",
+    "role": "الدور",
+    "shop": "المتجر",
+    "currentPassword": "كلمة المرور الحالية",
+    "newPassword": "كلمة المرور الجديدة",
+    "confirmPassword": "تأكيد كلمة المرور الجديدة",
+    "changePassword": "تغيير كلمة المرور"
+  },
+  "buttons": {
+    "saveProfile": "حفظ معلومات الحساب",
+    "savePassword": "حفظ كلمة المرور",
+    "saving": "جار الحفظ..."
+  },
+  "messages": {
+    "updated": "تم تحديث الملف الشخصي بنجاح!",
+    "passwordChanged": "تم تغيير كلمة المرور بنجاح!",
+    "passwordMismatch": "كلمة المرور الجديدة وتأكيدها غير متطابقين.",
+    "passwordTooShort": "يجب أن تكون كلمة المرور الجديدة 6 أحرف على الأقل.",
+    "currentPasswordWrong": "كلمة المرور الحالية غير صحيحة.",
+    "passwordChangeError": "حدث خطأ أثناء تغيير كلمة المرور.",
+    "notAuthenticated": "لا يمكن تغيير كلمة المرور، المستخدم غير مسجل."
+  },
+  "validation": {
+    "nameEmailRequired": "الاسم والبريد الإلكتروني لا يمكن أن يكونا فارغين.",
+    "emailTaken": "هذا البريد الإلكتروني مستخدم بالفعل.",
+    "fillAllFields": "يرجى ملء جميع الحقول."
+  }
+}

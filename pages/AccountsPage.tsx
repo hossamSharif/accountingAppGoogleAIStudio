@@ -8,6 +8,9 @@ import { doc, getDoc, collection, query, where, onSnapshot, orderBy } from 'fire
 import AccountList from '../components/AccountList';
 import AccountModal from '../components/AccountModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { useTranslation } from '../i18n/useTranslation';
+import { translateEnum, accountClassificationTranslations, accountNatureTranslations } from '../i18n/enumTranslations';
+import { getBilingualText } from '../utils/bilingual';
 
 interface AccountsPageProps {
     // No props needed - component will be self-contained
@@ -24,6 +27,8 @@ const SearchIcon = () => (
 );
 
 const AccountsPage: React.FC<AccountsPageProps> = () => {
+    const { t, language } = useTranslation();
+
     // UI State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -70,7 +75,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                     }
                 } catch (error) {
                     console.error('Error fetching user data:', error);
-                    setError('خطأ في تحميل بيانات المستخدم');
+                    setError(t('accounts.messages.errorLoading'));
                 }
             } else {
                 setCurrentUser(null);
@@ -122,7 +127,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                 setAccounts(accountsData);
             }, (error) => {
                 console.error('Error listening to accounts:', error);
-                setError('خطأ في تحميل الحسابات');
+                setError(t('accounts.messages.errorLoadingAccounts'));
             });
             unsubscribers.push(accountsUnsubscribe);
 
@@ -139,13 +144,13 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                 setTransactions(transactionsData);
             }, (error) => {
                 console.error('Error listening to transactions:', error);
-                setError('خطأ في تحميل المعاملات');
+                setError(t('accounts.messages.errorLoadingTransactions'));
             });
             unsubscribers.push(transactionsUnsubscribe);
 
         } catch (error) {
             console.error('Error setting up listeners:', error);
-            setError('خطأ في الاتصال بقاعدة البيانات');
+            setError(t('accounts.messages.errorDatabase'));
         }
 
         return () => {
@@ -166,7 +171,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
 
     const handleSaveAccount = async (accountData: Omit<Account, 'id' | 'isActive' | 'shopId'> | Account) => {
         if (!currentUser) {
-            setError('يجب تسجيل الدخول أولاً');
+            setError(t('accounts.messages.loginRequired'));
             return;
         }
 
@@ -178,7 +183,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                 // Update existing account
                 const { id, isActive, shopId, createdAt, ...updateData } = accountData;
                 await AccountService.updateAccount(id, updateData);
-                setSuccessMessage('تم تحديث الحساب بنجاح');
+                setSuccessMessage(t('accounts.messages.updated'));
             } else {
                 // Create new account
                 const shopId = currentUser.role === 'admin'
@@ -186,7 +191,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                     : currentUser.shopId || '';
 
                 if (!shopId) {
-                    throw new Error('لم يتم العثور على معرف المتجر');
+                    throw new Error(t('accounts.messages.shopNotFound'));
                 }
 
                 await AccountService.createAccount({
@@ -198,12 +203,12 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                     description: accountData.description,
                     shopId
                 });
-                setSuccessMessage('تم إنشاء الحساب بنجاح');
+                setSuccessMessage(t('accounts.messages.created'));
             }
             handleCloseModal();
         } catch (error: any) {
             console.error('Error saving account:', error);
-            setError(error.message || 'حدث خطأ أثناء حفظ الحساب');
+            setError(error.message || t('accounts.messages.errorSaving'));
         } finally {
             setIsLoading(false);
         }
@@ -216,11 +221,11 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
             setIsLoading(true);
             setError('');
             await AccountService.toggleAccountStatus(togglingStatusAccount.id);
-            setSuccessMessage(togglingStatusAccount.isActive ? 'تم إلغاء تفعيل الحساب' : 'تم تفعيل الحساب');
+            setSuccessMessage(togglingStatusAccount.isActive ? t('accounts.messages.deactivated') : t('accounts.messages.activated'));
             setTogglingStatusAccount(null);
         } catch (error: any) {
             console.error('Error toggling account status:', error);
-            setError(error.message || 'حدث خطأ أثناء تغيير حالة الحساب');
+            setError(error.message || t('accounts.messages.errorToggling'));
         } finally {
             setIsLoading(false);
         }
@@ -233,11 +238,11 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
             setIsLoading(true);
             setError('');
             await AccountService.deleteAccount(deletingAccount.id);
-            setSuccessMessage('تم حذف الحساب بنجاح');
+            setSuccessMessage(t('accounts.messages.deleted'));
             setDeletingAccount(null);
         } catch (error: any) {
             console.error('Error deleting account:', error);
-            setError(error.message || 'حدث خطأ أثناء حذف الحساب');
+            setError(error.message || t('accounts.messages.errorDeleting'));
         } finally {
             setIsLoading(false);
         }
@@ -357,7 +362,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
         return (
             <div className="flex justify-center items-center min-h-96">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                <span className="mr-3 text-lg">جاري التحميل...</span>
+                <span className="mr-3 text-lg">{t('accounts.loading')}</span>
             </div>
         );
     }
@@ -367,8 +372,8 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
         return (
             <div className="flex justify-center items-center min-h-96">
                 <div className="text-center">
-                    <h2 className="text-xl text-red-500 mb-2">يجب تسجيل الدخول أولاً</h2>
-                    <p className="text-gray-600">يرجى تسجيل الدخول للوصول إلى شجرة الحسابات</p>
+                    <h2 className="text-xl text-red-500 mb-2">{t('accounts.noUser.title')}</h2>
+                    <p className="text-gray-600">{t('accounts.noUser.description')}</p>
                 </div>
             </div>
         );
@@ -405,7 +410,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
             )}
 
             <div className="flex justify-between items-center gap-4 flex-wrap">
-                <h1 className="text-3xl font-bold">شجرة الحسابات</h1>
+                <h1 className="text-3xl font-bold">{t('accounts.title')}</h1>
                 <div className="flex gap-2 flex-wrap">
                      <button
                         onClick={handleExportCSV}
@@ -413,7 +418,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                         className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <ExportIcon />
-                        <span>تصدير CSV</span>
+                        <span>{t('accounts.actions.export')}</span>
                     </button>
                     <button
                         onClick={() => handleOpenModal()}
@@ -421,7 +426,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                         className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                     >
                         <PlusIcon />
-                        <span>إضافة حساب جديد</span>
+                        <span>{t('accounts.actions.create')}</span>
                     </button>
                 </div>
             </div>
@@ -435,7 +440,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                         type="search"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="ابحث بالاسم أو الرمز..."
+                        placeholder={t('accounts.search.placeholder')}
                         className="w-full bg-surface border border-gray-600 rounded-lg p-3 pr-10 text-text-primary focus:ring-primary focus:border-primary placeholder-gray-400"
                     />
                 </div>
@@ -446,17 +451,17 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                     {currentUser?.role === 'admin' && shops.length > 0 && (
                         <div className="flex-1 min-w-[200px]">
                             <label className="block text-sm font-medium text-text-secondary mb-2">
-                                المتجر
+                                {t('accounts.filters.shop')}
                             </label>
                             <select
                                 value={selectedShop}
                                 onChange={(e) => setSelectedShop(e.target.value)}
                                 className="w-full bg-surface border border-gray-600 rounded-lg p-2 text-text-primary focus:ring-primary focus:border-primary"
                             >
-                                <option value="all">جميع المتاجر</option>
+                                <option value="all">{t('accounts.filters.allShops')}</option>
                                 {shops.map((shop) => (
                                     <option key={shop.id} value={shop.id}>
-                                        {shop.name}
+                                        {getBilingualText(shop.name, shop.nameEn, language)}
                                     </option>
                                 ))}
                             </select>
@@ -466,17 +471,17 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                     {/* Classification Filter */}
                     <div className="flex-1 min-w-[200px]">
                         <label className="block text-sm font-medium text-text-secondary mb-2">
-                            التصنيف
+                            {t('accounts.filters.classification')}
                         </label>
                         <select
                             value={selectedClassification}
                             onChange={(e) => setSelectedClassification(e.target.value)}
                             className="w-full bg-surface border border-gray-600 rounded-lg p-2 text-text-primary focus:ring-primary focus:border-primary"
                         >
-                            <option value="all">جميع التصنيفات</option>
+                            <option value="all">{t('accounts.filters.allClassifications')}</option>
                             {Object.values(AccountClassification).map((classification) => (
                                 <option key={classification} value={classification}>
-                                    {classification}
+                                    {translateEnum(classification, accountClassificationTranslations, language)}
                                 </option>
                             ))}
                         </select>
@@ -485,17 +490,17 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                     {/* Nature Filter */}
                     <div className="flex-1 min-w-[200px]">
                         <label className="block text-sm font-medium text-text-secondary mb-2">
-                            الطبيعة
+                            {t('accounts.filters.nature')}
                         </label>
                         <select
                             value={selectedNature}
                             onChange={(e) => setSelectedNature(e.target.value)}
                             className="w-full bg-surface border border-gray-600 rounded-lg p-2 text-text-primary focus:ring-primary focus:border-primary"
                         >
-                            <option value="all">جميع الطبائع</option>
+                            <option value="all">{t('accounts.filters.allNatures')}</option>
                             {Object.values(AccountNature).map((nature) => (
                                 <option key={nature} value={nature}>
-                                    {nature}
+                                    {translateEnum(nature, accountNatureTranslations, language)}
                                 </option>
                             ))}
                         </select>
@@ -523,25 +528,28 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
             />
 
             {togglingStatusAccount && (
-                <ConfirmationModal 
-                    isOpen={!!togglingStatusAccount} 
+                <ConfirmationModal
+                    isOpen={!!togglingStatusAccount}
                     onClose={() => setTogglingStatusAccount(null)}
                     onConfirm={handleConfirmToggleStatus}
-                    title={togglingStatusAccount.isActive ? 'تأكيد إلغاء التفعيل' : 'تأكيد التفعيل'}
-                    message={`هل أنت متأكد من ${togglingStatusAccount.isActive ? 'إلغاء تفعيل' : 'تفعيل'} حساب "${togglingStatusAccount.name}"؟`}
-                    confirmText={togglingStatusAccount.isActive ? 'إلغاء التفعيل' : 'تفعيل'}
+                    title={t('accounts.messages.confirmToggleTitle', { action: togglingStatusAccount.isActive ? t('accounts.messages.toggleActive') : t('accounts.messages.toggleInactive') })}
+                    message={t('accounts.messages.toggleConfirm', {
+                        action: togglingStatusAccount.isActive ? t('accounts.messages.toggleActive') : t('accounts.messages.toggleInactive'),
+                        name: getBilingualText(togglingStatusAccount.name, togglingStatusAccount.nameEn, language)
+                    })}
+                    confirmText={togglingStatusAccount.isActive ? t('accounts.actions.deactivate') : t('accounts.actions.activate')}
                     isDestructive={togglingStatusAccount.isActive}
                 />
             )}
-            
+
             {deletingAccount && (
-                <ConfirmationModal 
-                    isOpen={!!deletingAccount} 
+                <ConfirmationModal
+                    isOpen={!!deletingAccount}
                     onClose={() => setDeletingAccount(null)}
                     onConfirm={handleConfirmDelete}
-                    title="تأكيد الحذف"
-                    message={`هل أنت متأكد من حذف حساب "${deletingAccount.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
-                    confirmText="حذف"
+                    title={t('accounts.messages.confirmDeleteTitle')}
+                    message={t('accounts.messages.deleteConfirm', { name: getBilingualText(deletingAccount.name, deletingAccount.nameEn, language) })}
+                    confirmText={t('accounts.actions.delete')}
                     isDestructive={true}
                 />
             )}

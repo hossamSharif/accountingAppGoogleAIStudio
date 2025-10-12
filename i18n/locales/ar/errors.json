@@ -1,0 +1,11 @@
+{
+  "general": "حدث خطأ غير متوقع",
+  "permissionDenied": "غير مسموح لك بتنفيذ هذا الإجراء",
+  "databaseConnection": "فشل الاتصال بقاعدة البيانات",
+  "networkError": "خطأ في الاتصال بالشبكة",
+  "validationError": "خطأ في التحقق من البيانات",
+  "notFound": "العنصر المطلوب غير موجود",
+  "unauthorized": "غير مصرح",
+  "sessionExpired": "انتهت الجلسة",
+  "serverError": "خطأ في الخادم"
+}

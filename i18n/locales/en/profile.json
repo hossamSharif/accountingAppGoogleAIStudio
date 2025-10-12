@@ -1,0 +1,35 @@
+{
+  "title": "User Account Management",
+  "personalInfo": "Account Information",
+  "accountSettings": "Account Settings",
+  "passwordChange": "Change Password",
+  "form": {
+    "name": "Full Name",
+    "email": "Email (for login)",
+    "role": "Role",
+    "shop": "Shop",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm New Password",
+    "changePassword": "Change Password"
+  },
+  "buttons": {
+    "saveProfile": "Save Account Information",
+    "savePassword": "Save Password",
+    "saving": "Saving..."
+  },
+  "messages": {
+    "updated": "Profile updated successfully!",
+    "passwordChanged": "Password changed successfully!",
+    "passwordMismatch": "New password and confirmation do not match.",
+    "passwordTooShort": "New password must be at least 6 characters long.",
+    "currentPasswordWrong": "Current password is incorrect.",
+    "passwordChangeError": "An error occurred while changing password.",
+    "notAuthenticated": "Cannot change password, user is not authenticated."
+  },
+  "validation": {
+    "nameEmailRequired": "Name and email cannot be empty.",
+    "emailTaken": "This email is already in use.",
+    "fillAllFields": "Please fill all fields."
+  }
+}

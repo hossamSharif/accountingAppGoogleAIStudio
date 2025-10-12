@@ -14,6 +14,7 @@ import {
 import { BaseService } from './baseService';
 import { User, LogType, Log } from '../types';
 import { NotificationService } from './notificationService';
+import { translate } from '../utils/translate';
 
 export interface LogFilters {
     shopId?: string;
@@ -37,18 +38,41 @@ export class LoggingService extends BaseService {
     static async logAction(
         user: User,
         action: LogType,
-        message: string,
+        messageKeyOrText: string,
         shopId?: string,
-        metadata?: any
+        metadata?: any,
+        messageParams?: Record<string, any>
     ): Promise<void> {
         try {
-            this.validateRequired({ user, action, message }, ['user', 'action', 'message']);
+            this.validateRequired({ user, action, messageKeyOrText }, ['user', 'action', 'messageKeyOrText']);
+
+            // Check if it's a translation key or plain text
+            const isTranslationKey = messageKeyOrText.includes('.');
+
+            // Generate bilingual messages
+            let messageAr: string;
+            let messageEn: string;
+            let messageKey: string | undefined;
+
+            if (isTranslationKey) {
+                messageKey = messageKeyOrText;
+                messageAr = translate(messageKey, 'ar', messageParams);
+                messageEn = translate(messageKey, 'en', messageParams);
+            } else {
+                messageAr = messageKeyOrText;
+                messageEn = messageKeyOrText;
+                messageKey = undefined;
+            }
 
             const logData: Omit<Log, 'id'> = {
                 userId: user.id,
                 shopId: shopId || user.shopId,
                 type: action,
-                message: this.sanitizeString(message),
+                message: this.sanitizeString(messageAr),  // Keep for backwards compatibility
+                ...(messageKey && { messageKey }),  // Only include if defined
+                ...(messageParams && { messageParams }),  // Only include if defined
+                messageAr: this.sanitizeString(messageAr),
+                messageEn: this.sanitizeString(messageEn),
                 timestamp: Timestamp.now().toDate().toISOString(),
                 ...(metadata && { metadata: JSON.stringify(metadata) })
             };
@@ -57,7 +81,7 @@ export class LoggingService extends BaseService {
 
             // Auto-create notifications if needed (for non-admin users)
             if (user.role !== 'admin') {
-                await NotificationService.notifyAdminsOfUserAction(user, message, shopId);
+                await NotificationService.notifyAdminsOfUserAction(user, messageKeyOrText, shopId);
             }
 
         } catch (error: any) {
@@ -68,18 +92,41 @@ export class LoggingService extends BaseService {
     // Log system event
     static async logSystemEvent(
         action: LogType,
-        message: string,
+        messageKeyOrText: string,
         shopId?: string,
-        metadata?: any
+        metadata?: any,
+        messageParams?: Record<string, any>
     ): Promise<void> {
         try {
-            this.validateRequired({ action, message }, ['action', 'message']);
+            this.validateRequired({ action, messageKeyOrText }, ['action', 'messageKeyOrText']);
+
+            // Check if it's a translation key or plain text
+            const isTranslationKey = messageKeyOrText.includes('.');
+
+            // Generate bilingual messages
+            let messageAr: string;
+            let messageEn: string;
+            let messageKey: string | undefined;
+
+            if (isTranslationKey) {
+                messageKey = messageKeyOrText;
+                messageAr = translate(messageKey, 'ar', messageParams);
+                messageEn = translate(messageKey, 'en', messageParams);
+            } else {
+                messageAr = messageKeyOrText;
+                messageEn = messageKeyOrText;
+                messageKey = undefined;
+            }
 
             const logData: Omit<Log, 'id'> = {
                 userId: 'system',
                 shopId,
                 type: action,
-                message: this.sanitizeString(message),
+                message: this.sanitizeString(messageAr),  // Keep for backwards compatibility
+                ...(messageKey && { messageKey }),  // Only include if defined
+                ...(messageParams && { messageParams }),  // Only include if defined
+                messageAr: this.sanitizeString(messageAr),
+                messageEn: this.sanitizeString(messageEn),
                 timestamp: Timestamp.now().toDate().toISOString(),
                 ...(metadata && { metadata: JSON.stringify(metadata) })
             };
@@ -88,7 +135,7 @@ export class LoggingService extends BaseService {
 
             // Notify admins of important system events
             if (this.isImportantSystemEvent(action)) {
-                await NotificationService.notifyAdminsOfSystemEvent(message, action, shopId);
+                await NotificationService.notifyAdminsOfSystemEvent(messageKeyOrText, action, shopId);
             }
 
         } catch (error: any) {
@@ -383,7 +430,7 @@ export class LoggingService extends BaseService {
     // Batch log multiple actions (for bulk operations)
     static async logBatchActions(
         user: User,
-        actions: { type: LogType; message: string; metadata?: any }[],
+        actions: { type: LogType; message: string; metadata?: any; messageParams?: Record<string, any> }[],
         shopId?: string
     ): Promise<void> {
         try {
@@ -393,12 +440,33 @@ export class LoggingService extends BaseService {
             const batch = this.createBatch();
 
             actions.forEach(action => {
+                // Check if it's a translation key or plain text
+                const isTranslationKey = action.message.includes('.');
+
+                let messageAr: string;
+                let messageEn: string;
+                let messageKey: string | undefined;
+
+                if (isTranslationKey) {
+                    messageKey = action.message;
+                    messageAr = translate(messageKey, 'ar', action.messageParams);
+                    messageEn = translate(messageKey, 'en', action.messageParams);
+                } else {
+                    messageAr = action.message;
+                    messageEn = action.message;
+                    messageKey = undefined;
+                }
+
                 const logRef = this.getDocumentRef('logs');
                 const logData: Omit<Log, 'id'> = {
                     userId: user.id,
                     shopId: shopId || user.shopId,
                     type: action.type,
-                    message: this.sanitizeString(action.message),
+                    message: this.sanitizeString(messageAr),
+                    ...(messageKey && { messageKey }),  // Only include if defined
+                    ...(action.messageParams && { messageParams: action.messageParams }),  // Only include if defined
+                    messageAr: this.sanitizeString(messageAr),
+                    messageEn: this.sanitizeString(messageEn),
                     timestamp,
                     ...(action.metadata && { metadata: JSON.stringify(action.metadata) })
                 };
@@ -410,7 +478,7 @@ export class LoggingService extends BaseService {
 
             // Notify admins if user is not admin
             if (user.role !== 'admin' && actions.length > 0) {
-                const summaryMessage = `Performed ${actions.length} bulk actions`;
+                const summaryMessage = `logs.messages.bulkActions`;
                 await NotificationService.notifyAdminsOfUserAction(user, summaryMessage, shopId);
             }
 

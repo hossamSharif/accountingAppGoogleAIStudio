@@ -1,0 +1,118 @@
+{
+  "title": "شجرة الحسابات",
+  "subtitle": "إدارة دليل الحسابات والأرصدة",
+  "search": {
+    "placeholder": "ابحث بالاسم أو الرمز...",
+    "byCode": "بالرمز",
+    "byName": "بالاسم"
+  },
+  "filters": {
+    "all": "الكل",
+    "active": "النشطة",
+    "inactive": "غير النشطة",
+    "classification": "التصنيف",
+    "type": "النوع",
+    "allShops": "جميع المتاجر",
+    "allClassifications": "جميع التصنيفات",
+    "allNatures": "جميع الطبائع",
+    "shop": "المتجر",
+    "nature": "الطبيعة"
+  },
+  "actions": {
+    "create": "إضافة حساب جديد",
+    "createSub": "إنشاء حساب فرعي",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "activate": "تفعيل",
+    "deactivate": "إلغاء التفعيل",
+    "export": "تصدير CSV",
+    "print": "طباعة"
+  },
+  "table": {
+    "columns": {
+      "code": "الرمز",
+      "name": "اسم الحساب",
+      "nameArabic": "اسم الحساب (عربي)",
+      "nameEnglish": "اسم الحساب (إنجليزي)",
+      "classification": "التصنيف",
+      "nature": "الطبيعة",
+      "type": "النوع",
+      "balance": "الرصيد الحالي",
+      "status": "الحالة",
+      "actions": "الإجراءات"
+    },
+    "empty": "لا توجد حسابات تطابق بحثك أو لم يتم إضافة أي حسابات بعد."
+  },
+  "status": {
+    "active": "نشط",
+    "inactive": "غير نشط"
+  },
+  "messages": {
+    "created": "تم إنشاء الحساب بنجاح",
+    "updated": "تم تحديث الحساب بنجاح",
+    "deleted": "تم حذف الحساب بنجاح",
+    "activated": "تم تفعيل الحساب",
+    "deactivated": "تم إلغاء تفعيل الحساب",
+    "deleteError": "لا يمكن حذف حساب مرتبط بحركات",
+    "deleteConfirm": "هل أنت متأكد من حذف حساب \"{name}\"؟ لا يمكن التراجع عن هذا الإجراء.",
+    "toggleConfirm": "هل أنت متأكد من {action} حساب \"{name}\"؟",
+    "toggleActive": "إلغاء تفعيل",
+    "toggleInactive": "تفعيل",
+    "confirmToggleTitle": "تأكيد {action}",
+    "confirmDeleteTitle": "تأكيد الحذف",
+    "deleteWarning": "سيتم حذف الحساب وجميع الحسابات الفرعية",
+    "errorLoading": "خطأ في تحميل بيانات المستخدم",
+    "errorLoadingAccounts": "خطأ في تحميل الحسابات",
+    "errorLoadingTransactions": "خطأ في تحميل المعاملات",
+    "errorDatabase": "خطأ في الاتصال بقاعدة البيانات",
+    "errorSaving": "حدث خطأ أثناء حفظ الحساب",
+    "errorToggling": "حدث خطأ أثناء تغيير حالة الحساب",
+    "errorDeleting": "حدث خطأ أثناء حذف الحساب",
+    "loginRequired": "يجب تسجيل الدخول أولاً",
+    "shopNotFound": "لم يتم العثور على معرف المتجر"
+  },
+  "validation": {
+    "nameRequired": "اسم الحساب مطلوب",
+    "codeRequired": "رمز الحساب مطلوب",
+    "classificationRequired": "التصنيف مطلوب",
+    "natureRequired": "الطبيعة مطلوبة",
+    "typeRequired": "النوع مطلوب",
+    "parentRequired": "الحساب الأب مطلوب للحسابات الفرعية",
+    "duplicateCode": "رمز الحساب موجود بالفعل",
+    "duplicateName": "اسم الحساب موجود بالفعل"
+  },
+  "form": {
+    "title": {
+      "create": "إضافة حساب جديد",
+      "edit": "تعديل الحساب",
+      "createSub": "إنشاء حساب فرعي"
+    },
+    "accountCode": "رمز الحساب",
+    "accountCodePlaceholder": "مثال: 5101",
+    "accountName": "اسم الحساب",
+    "accountNamePlaceholder": "مثال: مصروفات الإيجار",
+    "accountNameArabic": "اسم الحساب (عربي)",
+    "accountNameEnglish": "اسم الحساب (إنجليزي)",
+    "classification": "التصنيف",
+    "nature": "الطبيعة",
+    "type": "النوع",
+    "parentAccount": "الحساب الرئيسي",
+    "selectParent": "اختر الحساب الأب",
+    "noParent": "حساب رئيسي",
+    "openingBalance": "الرصيد الافتتاحي (اختياري)",
+    "openingBalancePlaceholder": "مثال: 1500 للمدين، -500 للدائن",
+    "category": "الفئة",
+    "isActive": "الحساب نشط",
+    "notes": "ملاحظات",
+    "automatic": "تلقائي",
+    "optional": "اختياري",
+    "saveChanges": "حفظ التعديلات",
+    "addAccount": "إضافة الحساب",
+    "cancel": "إلغاء"
+  },
+  "loading": "جاري التحميل...",
+  "noUser": {
+    "title": "يجب تسجيل الدخول أولاً",
+    "description": "يرجى تسجيل الدخول للوصول إلى شجرة الحسابات"
+  }
+}

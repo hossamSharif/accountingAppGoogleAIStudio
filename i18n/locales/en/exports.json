@@ -1,0 +1,99 @@
+{
+  "pdf": {
+    "title": "Report",
+    "generatedOn": "Generated On",
+    "page": "Page",
+    "of": "of",
+    "total": "Total",
+    "subtotal": "Subtotal",
+    "grandTotal": "Grand Total",
+    "summary": "Summary",
+    "date": "Date",
+    "reportTitle": "Report Title",
+    "preparedBy": "Prepared By",
+    "printedOn": "Printed On"
+  },
+  "excel": {
+    "sheet1": "Data",
+    "sheet2": "Summary",
+    "summary": "Summary",
+    "data": "Data",
+    "analysis": "Analysis",
+    "charts": "Charts"
+  },
+  "csv": {
+    "exported": "Exported Successfully",
+    "dataExported": "Data Exported"
+  },
+  "options": {
+    "includeHeader": "Include Header",
+    "includeFooter": "Include Footer",
+    "landscape": "Landscape",
+    "portrait": "Portrait",
+    "pageSize": "Page Size",
+    "orientation": "Orientation",
+    "language": "Language",
+    "selectLanguage": "Select Language",
+    "arabic": "Arabic",
+    "english": "English",
+    "dateFormat": "Date Format",
+    "numberFormat": "Number Format",
+    "currency": "Currency",
+    "encoding": "Encoding"
+  },
+  "formats": {
+    "pdf": "PDF",
+    "excel": "Excel",
+    "csv": "CSV",
+    "json": "JSON"
+  },
+  "actions": {
+    "export": "Export",
+    "download": "Download",
+    "print": "Print",
+    "preview": "Preview",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "selectFormat": "Select Format"
+  },
+  "messages": {
+    "exporting": "Exporting...",
+    "exportSuccess": "Exported Successfully",
+    "exportFailed": "Export Failed",
+    "downloadStarted": "Download Started",
+    "noDataToExport": "No Data to Export",
+    "preparing": "Preparing...",
+    "generating": "Generating..."
+  },
+  "errors": {
+    "pdfFailed": "Failed to export PDF",
+    "excelFailed": "Failed to export Excel",
+    "csvFailed": "Failed to export CSV",
+    "jsonFailed": "Failed to export JSON",
+    "noData": "No data to export",
+    "invalidFormat": "Invalid format",
+    "exportError": "An error occurred during export"
+  },
+  "templates": {
+    "basic": "Basic Template",
+    "detailed": "Detailed Template",
+    "summary": "Summary Template",
+    "executive": "Executive Template",
+    "custom": "Custom Template"
+  },
+  "headers": {
+    "date": "Date",
+    "description": "Description",
+    "amount": "Amount",
+    "type": "Type",
+    "account": "Account",
+    "accountCode": "Account Code",
+    "accountName": "Account Name",
+    "debit": "Debit",
+    "credit": "Credit",
+    "balance": "Balance",
+    "status": "Status",
+    "reference": "Reference",
+    "notes": "Notes"
+  }
+}

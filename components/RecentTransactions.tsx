@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Transaction, TransactionType, Account, Shop, LogType, User, AccountType } from '../types';
 import { formatCurrency, formatNumber } from '../utils/formatting';
 import { exportTableToPDFEnhanced } from '../utils/pdfExportEnhanced';
+import { useTranslation } from '../i18n/useTranslation';
+import { translateEnum, transactionTypeTranslations } from '../i18n/enumTranslations';
 
 interface RecentTransactionsProps {
     transactions: Transaction[]; // Daily transactions
@@ -52,13 +54,14 @@ const generatePDFReport = async (
     accounts: Account[],
     shopName: string,
     date: Date,
+    currencySymbol: string,
     userName?: string,
     shopCode?: string
 ) => {
     try {
         const getAccountName = (accountId: string | undefined) => accounts.find(a => a.id === accountId)?.name || 'غير معروف';
         const getAccount = (accountId: string | undefined) => accounts.find(a => a.id === accountId);
-        const formatCurrencyForPDF = (amount: number) => `${formatNumber(amount, 0)} ج.س`;
+        const formatCurrencyForPDF = (amount: number) => `${formatNumber(amount, 0)} ${currencySymbol}`;
 
         // Get payment source (cash/bank) for each transaction
         const getPaymentSource = (t: Transaction): string => {
@@ -223,11 +226,13 @@ const generatePDFReport = async (
         );
     } catch (error) {
         console.error('Error generating PDF:', error);
-        alert('حدث خطأ أثناء تصدير التقرير');
+        // This error message will be shown by the component that calls this function
+        throw error;
     }
 };
 
 const RecentTransactions: React.FC<RecentTransactionsProps> = ({ transactions, allTransactions = [], accounts, onDelete, onStartEdit, activeShop, selectedDate, onAddLog, user }) => {
+    const { t, language } = useTranslation();
     const [deleteConfirmation, setDeleteConfirmation] = useState<{
         isOpen: boolean;
         transactionId: string | null;
@@ -239,19 +244,19 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ transactions, a
     });
 
     const getAccountName = (accountId: string | undefined) => {
-        if (!accountId) return 'غير محدد';
-        return accounts.find(a => a.id === accountId)?.name || 'غير معروف';
+        if (!accountId) return t('transactions.context.unknown');
+        return accounts.find(a => a.id === accountId)?.name || t('transactions.context.unknown');
     };
 
-    const getTransactionContextName = (t: Transaction) => {
-        if (t.type === TransactionType.TRANSFER) {
-            const fromAccount = getAccountName(t.entries.find(e => e.amount < 0)?.accountId);
-            const toAccount = getAccountName(t.entries.find(e => e.amount > 0)?.accountId);
-            return `من ${fromAccount} إلى ${toAccount}`;
+    const getTransactionContextName = (transaction: Transaction) => {
+        if (transaction.type === TransactionType.TRANSFER) {
+            const fromAccount = getAccountName(transaction.entries.find(e => e.amount < 0)?.accountId);
+            const toAccount = getAccountName(transaction.entries.find(e => e.amount > 0)?.accountId);
+            return t('transactions.context.transfer', { from: fromAccount, to: toAccount });
         }
-        if (t.partyId) return getAccountName(t.partyId);
-        if (t.categoryId) return getAccountName(t.categoryId);
-        return 'حركة عامة'
+        if (transaction.partyId) return getAccountName(transaction.partyId);
+        if (transaction.categoryId) return getAccountName(transaction.categoryId);
+        return t('transactions.context.general');
     };
 
     const handleShare = async () => {
@@ -297,7 +302,8 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ transactions, a
         });
 
         // Format currency for display
-        const formatCurrencyForShare = (amount: number) => `${formatNumber(amount, 0)} ج.س`;
+        const currencySymbol = t('currency.symbol', {}, 'common');
+        const formatCurrencyForShare = (amount: number) => `${formatNumber(amount, 0)} ${currencySymbol}`;
 
         // Build comprehensive report
         const dateString = selectedDate.toLocaleDateString('ar-EG-u-nu-latn', {
@@ -345,31 +351,38 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                 // If sharing fails, copy to clipboard as fallback
                 try {
                     await navigator.clipboard.writeText(reportText);
-                    alert('تم نسخ التقرير إلى الحافظة ✓');
-                    onAddLog?.(LogType.SHARE_REPORT, `تم نسخ تقرير يوم ${dateString} إلى الحافظة`);
+                    alert(t('transactions.messages.shareSuccess'));
+                    onAddLog?.(LogType.SHARE_REPORT, `${t('transactions.messages.shareSuccess')} - ${dateString}`);
                 } catch (clipboardError) {
                     console.error('Clipboard error:', clipboardError);
-                    onAddLog?.(LogType.SHARE_REPORT, 'فشلت عملية المشاركة.');
+                    onAddLog?.(LogType.SHARE_REPORT, t('transactions.messages.shareError'));
                 }
             }
         } else {
             // Fallback: copy to clipboard
             try {
                 await navigator.clipboard.writeText(reportText);
-                alert('تم نسخ التقرير إلى الحافظة ✓\n\nيمكنك الآن لصقه في أي تطبيق مشاركة');
-                onAddLog?.(LogType.SHARE_REPORT, `تم نسخ تقرير يوم ${dateString} إلى الحافظة`);
+                alert(t('transactions.messages.shareSuccess') + '\n\n' + (language === 'ar' ? 'يمكنك الآن لصقه في أي تطبيق مشاركة' : 'You can now paste it in any sharing app'));
+                onAddLog?.(LogType.SHARE_REPORT, `${t('transactions.messages.shareSuccess')} - ${dateString}`);
             } catch (error) {
                 console.error('Clipboard error:', error);
-                alert('خاصية المشاركة غير مدعومة في هذا المتصفح.');
-                onAddLog?.(LogType.SHARE_REPORT, 'فشلت عملية المشاركة - المتصفح غير مدعوم.');
+                alert(t('transactions.messages.shareError'));
+                onAddLog?.(LogType.SHARE_REPORT, t('transactions.messages.shareError'));
             }
         }
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
         if (!activeShop || !selectedDate) return;
-        generatePDFReport(transactions, allTransactions, accounts, activeShop.name, selectedDate, user?.name, activeShop.code);
-        onAddLog?.(LogType.EXPORT_REPORT, `تم تصدير تقرير يوم ${selectedDate.toLocaleDateString('ar-EG-u-nu-latn')} كملف PDF.`);
+        try {
+            const currencySymbol = t('currency.symbol', {}, 'common');
+            await generatePDFReport(transactions, allTransactions, accounts, activeShop.name, selectedDate, currencySymbol, user?.name, activeShop.code);
+            const dateString = selectedDate.toLocaleDateString(language === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US');
+            onAddLog?.(LogType.EXPORT_REPORT, `${t('transactions.messages.exportSuccess')} - ${dateString}`);
+        } catch (error) {
+            alert(t('transactions.messages.exportError'));
+            onAddLog?.(LogType.EXPORT_REPORT, t('transactions.messages.exportError'));
+        }
     };
 
     const handleDeleteClick = (transaction: Transaction) => {
@@ -395,19 +408,19 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
     return (
         <div className="bg-surface p-6 rounded-lg shadow-lg">
             <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">آخر الحركات المسجلة</h2>
+                <h2 className="text-xl font-bold">{t('transactions.list.title')}</h2>
                 {activeShop && selectedDate && (
                     <div className="flex gap-2">
                         <button
                             onClick={handleShare}
-                            title="مشاركة"
+                            title={t('transactions.list.actions.share')}
                             className="p-2 text-text-secondary hover:text-text-primary hover:bg-gray-700 rounded-md transition-colors"
                         >
                             <ShareIcon />
                         </button>
                         <button
                             onClick={handleExport}
-                            title="تصدير PDF"
+                            title={t('transactions.list.actions.export')}
                             className="p-2 text-text-secondary hover:text-text-primary hover:bg-gray-700 rounded-md transition-colors"
                         >
                             <ExportIcon />
@@ -419,40 +432,40 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                 <table className="w-full text-right">
                     <thead>
                         <tr className="border-b border-gray-700 text-text-secondary">
-                            <th className="p-3">التاريخ</th>
-                            <th className="p-3">النوع</th>
-                            <th className="p-3">البيان</th>
-                            <th className="p-3">الوصف</th>
-                            <th className="p-3 text-left">المبلغ</th>
-                            <th className="p-3 text-center">الإجراءات</th>
+                            <th className="p-3">{t('transactions.list.columns.date')}</th>
+                            <th className="p-3">{t('transactions.list.columns.type')}</th>
+                            <th className="p-3">{t('transactions.list.columns.context')}</th>
+                            <th className="p-3">{t('transactions.list.columns.description')}</th>
+                            <th className="p-3 text-left">{t('transactions.list.columns.amount')}</th>
+                            <th className="p-3 text-center">{t('transactions.list.columns.actions')}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {transactions.slice(0, 10).map((t, index) => (
-                            <tr key={t.id} className={`border-b border-gray-700 ${index % 2 === 0 ? 'bg-background/50' : ''}`}>
-                                <td className="p-3 whitespace-nowrap text-text-secondary">{new Date(t.date).toLocaleDateString('ar-EG', { day: '2-digit', month: 'short' })}</td>
+                        {transactions.slice(0, 10).map((tx, index) => (
+                            <tr key={tx.id} className={`border-b border-gray-700 ${index % 2 === 0 ? 'bg-background/50' : ''}`}>
+                                <td className="p-3 whitespace-nowrap text-text-secondary">{new Date(tx.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', { day: '2-digit', month: 'short' })}</td>
                                 <td className="p-3">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTransactionTypeStyle(t.type)}`}>
-                                        {t.type}
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTransactionTypeStyle(tx.type)}`}>
+                                        {translateEnum(tx.type, transactionTypeTranslations, language)}
                                     </span>
                                 </td>
-                                <td className="p-3 text-sm text-text-secondary">{getTransactionContextName(t)}</td>
-                                <td className="p-3">{t.description}</td>
-                                <td className={`p-3 text-left font-mono font-bold ${t.type === TransactionType.SALE ? 'text-green-400' : t.type === TransactionType.TRANSFER ? 'text-blue-300' : 'text-red-400'}`}>
-                                    {formatCurrency(t.totalAmount)}
+                                <td className="p-3 text-sm text-text-secondary">{getTransactionContextName(tx)}</td>
+                                <td className="p-3">{tx.description}</td>
+                                <td className={`p-3 text-left font-mono font-bold ${tx.type === TransactionType.SALE ? 'text-green-400' : tx.type === TransactionType.TRANSFER ? 'text-blue-300' : 'text-red-400'}`}>
+                                    {formatCurrency(tx.totalAmount)}
                                 </td>
                                 <td className="p-3 text-center">
                                     <button
-                                        onClick={() => onStartEdit(t)}
+                                        onClick={() => onStartEdit(tx)}
                                         className="text-accent hover:text-blue-400 p-2 transition-colors duration-200"
-                                        aria-label={`تعديل حركة ${t.description}`}
+                                        aria-label={`${t('transactions.list.actions.edit')} ${tx.description}`}
                                     >
                                         <EditIcon />
                                     </button>
                                     <button
-                                        onClick={() => handleDeleteClick(t)}
+                                        onClick={() => handleDeleteClick(tx)}
                                         className="text-red-500 hover:text-red-400 p-2 transition-colors duration-200"
-                                        aria-label={`حذف حركة ${t.description}`}
+                                        aria-label={`${t('transactions.list.actions.delete')} ${tx.description}`}
                                     >
                                         <DeleteIcon />
                                     </button>
@@ -462,7 +475,7 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                          {transactions.length === 0 && (
                             <tr>
                                 <td colSpan={6} className="text-center p-6 text-text-secondary">
-                                    لا توجد حركات مسجلة. قم بإضافة حركة جديدة للبدء.
+                                    {t('transactions.list.empty')}
                                 </td>
                             </tr>
                         )}
@@ -474,31 +487,31 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
             {deleteConfirmation.isOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="bg-surface p-6 rounded-lg shadow-xl max-w-md w-full mx-4 border border-gray-700">
-                        <h3 className="text-xl font-bold mb-4 text-red-400">تأكيد الحذف</h3>
+                        <h3 className="text-xl font-bold mb-4 text-red-400">{t('transactions.list.deleteConfirm.title')}</h3>
                         <p className="text-text-primary mb-6">
-                            هل أنت متأكد من حذف هذه الحركة؟
+                            {t('transactions.list.deleteConfirm.message')}
                         </p>
                         <div className="bg-background p-3 rounded mb-6">
                             <p className="text-text-secondary text-sm">
-                                <span className="font-semibold">الحركة: </span>
+                                <span className="font-semibold">{t('transactions.list.deleteConfirm.transactionLabel')}</span>
                                 {deleteConfirmation.transactionDescription}
                             </p>
                         </div>
                         <p className="text-yellow-400 text-sm mb-6">
-                            ⚠️ تحذير: لا يمكن التراجع عن هذا الإجراء
+                            {t('transactions.list.deleteConfirm.warning')}
                         </p>
                         <div className="flex gap-3">
                             <button
                                 onClick={confirmDelete}
                                 className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
                             >
-                                حذف
+                                {t('transactions.list.deleteConfirm.confirmButton')}
                             </button>
                             <button
                                 onClick={cancelDelete}
                                 className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
                             >
-                                إلغاء
+                                {t('transactions.list.deleteConfirm.cancelButton')}
                             </button>
                         </div>
                     </div>

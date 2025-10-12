@@ -6,6 +6,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, orderBy, limit, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import DailyEntryForm from '../components/DailyEntryForm';
+import { useTranslation } from '../i18n/useTranslation';
+import { translateEnum, transactionTypeTranslations } from '../i18n/enumTranslations';
+import { getBilingualText } from '../utils/bilingual';
 
 interface TransactionsPageProps {
     user: User | null;
@@ -75,6 +78,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
     financialYears = [],
     onAddAccount
 }) => {
+    const { t, language } = useTranslation();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -159,7 +163,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
             });
 
             setTransactions(loadedTransactions);
-            onAddLog?.(LogType.REPORT_GENERATED, `تم تحميل ${loadedTransactions.length} حركة`);
+            // Removed automatic logging when loading transactions to reduce log noise
         } catch (error) {
             console.error('Error loading transactions:', error);
             onAddLog?.(LogType.SYSTEM_ERROR, 'فشل تحميل الحركات');
@@ -209,23 +213,25 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
     // Helper functions
     const getAccountName = (accountId: string | undefined) => {
-        if (!accountId) return 'غير محدد';
-        return accounts.find(a => a.id === accountId)?.name || 'غير معروف';
+        if (!accountId) return t('transactions.context.unknown');
+        const account = accounts.find(a => a.id === accountId);
+        return account ? getBilingualText(account.name, account.nameEn, language) : t('transactions.context.unknown');
     };
 
     const getShopName = (shopId: string) => {
-        return shops.find(s => s.id === shopId)?.name || 'غير معروف';
+        const shop = shops.find(s => s.id === shopId);
+        return shop ? getBilingualText(shop.name, shop.nameEn, language) : t('transactions.context.unknown');
     };
 
-    const getTransactionContextName = (t: Transaction) => {
-        if (t.type === TransactionType.TRANSFER) {
-            const fromAccount = getAccountName(t.entries.find(e => e.amount < 0)?.accountId);
-            const toAccount = getAccountName(t.entries.find(e => e.amount > 0)?.accountId);
-            return `من ${fromAccount} إلى ${toAccount}`;
+    const getTransactionContextName = (tx: Transaction) => {
+        if (tx.type === TransactionType.TRANSFER) {
+            const fromAccount = getAccountName(tx.entries.find(e => e.amount < 0)?.accountId);
+            const toAccount = getAccountName(tx.entries.find(e => e.amount > 0)?.accountId);
+            return t('transactions.context.transfer', { from: fromAccount, to: toAccount });
         }
-        if (t.partyId) return getAccountName(t.partyId);
-        if (t.categoryId) return getAccountName(t.categoryId);
-        return 'حركة عامة';
+        if (tx.partyId) return getAccountName(tx.partyId);
+        if (tx.categoryId) return getAccountName(tx.categoryId);
+        return t('transactions.context.general');
     };
 
     const getTransactionTypeStyle = (type: TransactionType) => {
@@ -246,7 +252,8 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
     // Export to PDF
     const generatePDFReport = async () => {
         try {
-            const formatCurrencyForPDF = (amount: number) => `${formatNumber(amount, 0)} ج.س`;
+            const currencySymbol = t('currency.symbol', {}, 'common');
+            const formatCurrencyForPDF = (amount: number) => `${formatNumber(amount, 0)} ${currencySymbol}`;
             const getAccount = (accountId: string | undefined) => accounts.find(a => a.id === accountId);
 
             // Get payment source
@@ -491,9 +498,11 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
     return (
         <div className="p-6">
             <div className="mb-6">
-                <h1 className="text-3xl font-bold mb-2">سجل الحركات</h1>
+                <h1 className="text-3xl font-bold mb-2">{t('transactions.title')}</h1>
                 <p className="text-text-secondary">
-                    {isAdmin ? 'عرض جميع الحركات المسجلة لجميع المتاجر' : `عرض الحركات المسجلة لمتجر ${activeShop?.name}`}
+                    {isAdmin
+                        ? t('transactions.subtitle')
+                        : `${t('transactions.subtitle')} - ${activeShop ? getBilingualText(activeShop.name, activeShop.nameEn, language) : ''}`}
                 </p>
             </div>
 
@@ -505,7 +514,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                         className="flex items-center gap-2 text-accent hover:text-accent-hover transition-colors"
                     >
                         <FilterIcon />
-                        <span>{showFilters ? 'إخفاء الفلاتر' : 'إظهار الفلاتر'}</span>
+                        <span>{showFilters ? t('transactions.filters.hideFilters') : t('transactions.filters.showFilters')}</span>
                     </button>
 
                     <div className="flex gap-2">
@@ -514,14 +523,14 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                         >
                             <ShareIcon />
-                            <span>مشاركة</span>
+                            <span>{t('transactions.actions.share')}</span>
                         </button>
                         <button
                             onClick={generatePDFReport}
                             className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
                         >
                             <ExportIcon />
-                            <span>تصدير PDF</span>
+                            <span>{t('transactions.actions.export')}</span>
                         </button>
                     </div>
                 </div>
@@ -530,32 +539,32 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                         {/* Transaction Type Filter */}
                         <div>
-                            <label className="block text-sm font-medium mb-2">نوع الحركة</label>
+                            <label className="block text-sm font-medium mb-2">{t('transactions.filters.type')}</label>
                             <select
                                 value={filters.type}
                                 onChange={(e) => setFilters({ ...filters, type: e.target.value as any })}
                                 className="w-full p-2 bg-background border border-gray-600 rounded-lg focus:ring-2 focus:ring-accent"
                             >
-                                <option value="all">جميع الأنواع</option>
-                                <option value={TransactionType.SALE}>مبيعات</option>
-                                <option value={TransactionType.PURCHASE}>مشتريات</option>
-                                <option value={TransactionType.EXPENSE}>مصروفات</option>
-                                <option value={TransactionType.TRANSFER}>تحويلات</option>
+                                <option value="all">{t('transactions.filters.allTypes')}</option>
+                                <option value={TransactionType.SALE}>{translateEnum(TransactionType.SALE, transactionTypeTranslations, language)}</option>
+                                <option value={TransactionType.PURCHASE}>{translateEnum(TransactionType.PURCHASE, transactionTypeTranslations, language)}</option>
+                                <option value={TransactionType.EXPENSE}>{translateEnum(TransactionType.EXPENSE, transactionTypeTranslations, language)}</option>
+                                <option value={TransactionType.TRANSFER}>{translateEnum(TransactionType.TRANSFER, transactionTypeTranslations, language)}</option>
                             </select>
                         </div>
 
                         {/* Shop Filter (Admin only) */}
                         {isAdmin && (
                             <div>
-                                <label className="block text-sm font-medium mb-2">المتجر</label>
+                                <label className="block text-sm font-medium mb-2">{t('transactions.filters.shop')}</label>
                                 <select
                                     value={filters.shopId}
                                     onChange={(e) => setFilters({ ...filters, shopId: e.target.value })}
                                     className="w-full p-2 bg-background border border-gray-600 rounded-lg focus:ring-2 focus:ring-accent"
                                 >
-                                    <option value="all">جميع المتاجر</option>
+                                    <option value="all">{t('transactions.filters.allShops')}</option>
                                     {shops.map(shop => (
-                                        <option key={shop.id} value={shop.id}>{shop.name}</option>
+                                        <option key={shop.id} value={shop.id}>{getBilingualText(shop.name, shop.nameEn, language)}</option>
                                     ))}
                                 </select>
                             </div>
@@ -563,7 +572,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
                         {/* Date Range */}
                         <div>
-                            <label className="block text-sm font-medium mb-2">من تاريخ</label>
+                            <label className="block text-sm font-medium mb-2">{t('transactions.filters.from')}</label>
                             <input
                                 type="date"
                                 value={filters.startDate}
@@ -573,7 +582,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2">إلى تاريخ</label>
+                            <label className="block text-sm font-medium mb-2">{t('transactions.filters.to')}</label>
                             <input
                                 type="date"
                                 value={filters.endDate}
@@ -585,13 +594,13 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
                         {/* Search */}
                         <div>
-                            <label className="block text-sm font-medium mb-2">بحث</label>
+                            <label className="block text-sm font-medium mb-2">{t('transactions.filters.search')}</label>
                             <div className="relative">
                                 <input
                                     type="text"
                                     value={filters.searchTerm}
                                     onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
-                                    placeholder="ابحث في الوصف أو البيان..."
+                                    placeholder={t('transactions.filters.searchPlaceholder')}
                                     className="w-full p-2 pr-10 bg-background border border-gray-600 rounded-lg focus:ring-2 focus:ring-accent"
                                 />
                                 <SearchIcon />
@@ -600,7 +609,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
                         {/* Amount Range */}
                         <div>
-                            <label className="block text-sm font-medium mb-2">المبلغ من</label>
+                            <label className="block text-sm font-medium mb-2">{t('transactions.filters.minAmount')}</label>
                             <input
                                 type="number"
                                 value={filters.minAmount}
@@ -610,7 +619,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2">المبلغ إلى</label>
+                            <label className="block text-sm font-medium mb-2">{t('transactions.filters.maxAmount')}</label>
                             <input
                                 type="number"
                                 value={filters.maxAmount}
@@ -626,11 +635,11 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-surface p-4 rounded-lg">
-                    <h3 className="text-sm text-text-secondary mb-1">إجمالي الحركات</h3>
+                    <h3 className="text-sm text-text-secondary mb-1">{t('transactions.summary.totalTransactions')}</h3>
                     <p className="text-2xl font-bold">{filteredTransactions.length}</p>
                 </div>
                 <div className="bg-surface p-4 rounded-lg">
-                    <h3 className="text-sm text-text-secondary mb-1">المبيعات</h3>
+                    <h3 className="text-sm text-text-secondary mb-1">{t('transactions.summary.totalSales')}</h3>
                     <p className="text-2xl font-bold text-green-400">
                         {formatCurrency(
                             filteredTransactions
@@ -640,7 +649,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                     </p>
                 </div>
                 <div className="bg-surface p-4 rounded-lg">
-                    <h3 className="text-sm text-text-secondary mb-1">المشتريات</h3>
+                    <h3 className="text-sm text-text-secondary mb-1">{t('transactions.summary.totalPurchases')}</h3>
                     <p className="text-2xl font-bold text-yellow-400">
                         {formatCurrency(
                             filteredTransactions
@@ -650,7 +659,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                     </p>
                 </div>
                 <div className="bg-surface p-4 rounded-lg">
-                    <h3 className="text-sm text-text-secondary mb-1">المصروفات</h3>
+                    <h3 className="text-sm text-text-secondary mb-1">{t('transactions.summary.totalExpenses')}</h3>
                     <p className="text-2xl font-bold text-red-400">
                         {formatCurrency(
                             filteredTransactions
@@ -667,13 +676,13 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                     <table className="w-full">
                         <thead className="bg-background">
                             <tr className="text-gray-400">
-                                <th className="p-4 text-right">التاريخ</th>
-                                <th className="p-4 text-right">النوع</th>
-                                <th className="p-4 text-right">البيان</th>
-                                <th className="p-4 text-right">الوصف</th>
-                                <th className="p-4 text-left">المبلغ</th>
-                                {isAdmin && <th className="p-4 text-right">المتجر</th>}
-                                <th className="p-4 text-center">الإجراءات</th>
+                                <th className="p-4 text-right">{t('transactions.list.columns.date')}</th>
+                                <th className="p-4 text-right">{t('transactions.list.columns.type')}</th>
+                                <th className="p-4 text-right">{t('transactions.list.columns.context')}</th>
+                                <th className="p-4 text-right">{t('transactions.list.columns.description')}</th>
+                                <th className="p-4 text-left">{t('transactions.list.columns.amount')}</th>
+                                {isAdmin && <th className="p-4 text-right">{t('transactions.list.columns.shop')}</th>}
+                                <th className="p-4 text-center">{t('transactions.list.columns.actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -682,25 +691,25 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                                     <td colSpan={isAdmin ? 7 : 6} className="text-center p-8">
                                         <div className="inline-flex items-center gap-2">
                                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
-                                            <span>جاري التحميل...</span>
+                                            <span>{t('transactions.list.loading')}</span>
                                         </div>
                                     </td>
                                 </tr>
                             ) : paginatedTransactions.length === 0 ? (
                                 <tr>
                                     <td colSpan={isAdmin ? 7 : 6} className="text-center p-8 text-gray-400">
-                                        لا توجد حركات تطابق معايير البحث
+                                        {t('transactions.list.noResults')}
                                     </td>
                                 </tr>
                             ) : (
                                 paginatedTransactions.map((transaction, index) => (
                                     <tr key={transaction.id} className={index % 2 === 0 ? 'bg-background/50' : ''}>
                                         <td className="p-4 whitespace-nowrap text-gray-300">
-                                            {new Date(transaction.date).toLocaleDateString('ar-EG')}
+                                            {new Date(transaction.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
                                         </td>
                                         <td className="p-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTransactionTypeStyle(transaction.type)}`}>
-                                                {transaction.type}
+                                                {translateEnum(transaction.type, transactionTypeTranslations, language)}
                                             </span>
                                         </td>
                                         <td className="p-4 text-gray-300">{getTransactionContextName(transaction)}</td>
@@ -719,14 +728,14 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                                             <button
                                                 onClick={() => handleStartEdit(transaction)}
                                                 className="text-accent hover:text-blue-400 p-2 transition-colors duration-200"
-                                                aria-label={`تعديل حركة ${transaction.description}`}
+                                                aria-label={t('transactions.actions.edit')}
                                             >
                                                 <EditIcon />
                                             </button>
                                             <button
                                                 onClick={() => handleDeleteClick(transaction)}
                                                 className="text-red-500 hover:text-red-400 p-2 transition-colors duration-200"
-                                                aria-label={`حذف حركة ${transaction.description}`}
+                                                aria-label={t('transactions.actions.delete')}
                                             >
                                                 <DeleteIcon />
                                             </button>
@@ -742,9 +751,11 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between p-4 border-t border-gray-700">
                         <div className="text-sm text-text-secondary">
-                            عرض {((currentPage - 1) * transactionsPerPage) + 1} إلى{' '}
-                            {Math.min(currentPage * transactionsPerPage, filteredTransactions.length)} من{' '}
-                            {filteredTransactions.length} حركة
+                            {t('transactions.list.pagination.showingRange', {
+                                start: ((currentPage - 1) * transactionsPerPage) + 1,
+                                end: Math.min(currentPage * transactionsPerPage, filteredTransactions.length),
+                                total: filteredTransactions.length
+                            })}
                         </div>
                         <div className="flex gap-2">
                             <button
@@ -752,14 +763,14 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                                 disabled={currentPage === 1}
                                 className="px-3 py-1 bg-background rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
                             >
-                                الأولى
+                                {t('transactions.list.pagination.first')}
                             </button>
                             <button
                                 onClick={() => setCurrentPage(currentPage - 1)}
                                 disabled={currentPage === 1}
                                 className="px-3 py-1 bg-background rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
                             >
-                                السابق
+                                {t('transactions.list.pagination.previous')}
                             </button>
                             <span className="px-3 py-1">
                                 {currentPage} / {totalPages}
@@ -769,14 +780,14 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                                 disabled={currentPage === totalPages}
                                 className="px-3 py-1 bg-background rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
                             >
-                                التالي
+                                {t('transactions.list.pagination.next')}
                             </button>
                             <button
                                 onClick={() => setCurrentPage(totalPages)}
                                 disabled={currentPage === totalPages}
                                 className="px-3 py-1 bg-background rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
                             >
-                                الأخيرة
+                                {t('transactions.list.pagination.last')}
                             </button>
                         </div>
                     </div>
@@ -787,31 +798,31 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
             {deleteConfirmation.isOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="bg-surface p-6 rounded-lg shadow-xl max-w-md w-full mx-4 border border-gray-700">
-                        <h3 className="text-xl font-bold mb-4 text-red-400">تأكيد الحذف</h3>
+                        <h3 className="text-xl font-bold mb-4 text-red-400">{t('transactions.deleteConfirm.title')}</h3>
                         <p className="text-text-primary mb-6">
-                            هل أنت متأكد من حذف هذه الحركة؟
+                            {t('transactions.deleteConfirm.message')}
                         </p>
                         <div className="bg-background p-3 rounded mb-6">
                             <p className="text-gray-300 text-sm">
-                                <span className="font-semibold">الحركة: </span>
+                                <span className="font-semibold">{t('transactions.deleteConfirm.transactionLabel')}</span>
                                 {deleteConfirmation.transactionDescription}
                             </p>
                         </div>
                         <p className="text-yellow-400 text-sm mb-6">
-                            ⚠️ تحذير: لا يمكن التراجع عن هذا الإجراء
+                            {t('transactions.deleteConfirm.warning')}
                         </p>
                         <div className="flex gap-3">
                             <button
                                 onClick={confirmDelete}
                                 className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
                             >
-                                حذف
+                                {t('transactions.deleteConfirm.confirmButton')}
                             </button>
                             <button
                                 onClick={cancelDelete}
                                 className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
                             >
-                                إلغاء
+                                {t('transactions.deleteConfirm.cancelButton')}
                             </button>
                         </div>
                     </div>

@@ -57,12 +57,15 @@ export const usePushNotifications = (currentUser: User | null) => {
   // Request notification permission and get FCM token
   const requestPermission = useCallback(async () => {
     if (!state.isSupported || !messaging || !currentUser) {
-      console.warn('Push notifications not supported or user not logged in');
+      console.warn('⚠️ Push notifications not supported or user not logged in');
+      console.warn('  - isSupported:', state.isSupported);
+      console.warn('  - messaging:', !!messaging);
+      console.warn('  - currentUser:', !!currentUser);
       return null;
     }
 
     if (!VAPID_KEY) {
-      console.error('VAPID key not configured. Please add VITE_FIREBASE_VAPID_KEY to .env file');
+      console.error('❌ VAPID key not configured. Please add VITE_FIREBASE_VAPID_KEY to .env file');
       setState(prev => ({
         ...prev,
         error: 'VAPID key not configured'
@@ -73,23 +76,48 @@ export const usePushNotifications = (currentUser: User | null) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
+      console.log('🔔 Requesting notification permission...');
+
       // Request permission
       const permission = await Notification.requestPermission();
+      console.log('📋 Permission result:', permission);
       setState(prev => ({ ...prev, permission }));
 
       if (permission === 'granted') {
         console.log('✅ Notification permission granted');
 
-        // Register service worker
+        // Unregister any existing service workers to avoid conflicts
+        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+        console.log(`📝 Found ${existingRegistrations.length} existing service worker(s)`);
+
+        for (const reg of existingRegistrations) {
+          if (reg.active?.scriptURL.includes('firebase-messaging-sw.js')) {
+            console.log('🔄 Unregistering old service worker:', reg.active.scriptURL);
+            await reg.unregister();
+          }
+        }
+
+        // Register service worker with explicit scope
+        console.log('📝 Registering service worker...');
         const registration = await navigator.serviceWorker.register(
           '/firebase-messaging-sw.js',
-          { scope: '/' }
+          {
+            scope: '/',
+            type: 'classic',
+            updateViaCache: 'none' // Disable caching for easier updates
+          }
         );
 
+        console.log('⏳ Waiting for service worker to be ready...');
         await navigator.serviceWorker.ready;
-        console.log('✅ Service worker registered');
+        console.log('✅ Service worker registered and ready');
+        console.log('   - Scope:', registration.scope);
+        console.log('   - Active:', !!registration.active);
+        console.log('   - Installing:', !!registration.installing);
+        console.log('   - Waiting:', !!registration.waiting);
 
         // Get FCM token
+        console.log('🔑 Requesting FCM token...');
         const token = await getToken(messaging as Messaging, {
           vapidKey: VAPID_KEY,
           serviceWorkerRegistration: registration
@@ -116,10 +144,10 @@ export const usePushNotifications = (currentUser: User | null) => {
 
           return token;
         } else {
-          throw new Error('No FCM token received');
+          throw new Error('No FCM token received from Firebase');
         }
       } else {
-        console.warn('⚠️ Notification permission denied');
+        console.warn('⚠️ Notification permission denied by user');
         setState(prev => ({
           ...prev,
           isLoading: false,
@@ -129,10 +157,26 @@ export const usePushNotifications = (currentUser: User | null) => {
       }
     } catch (error: any) {
       console.error('❌ Error getting FCM token:', error);
+      console.error('   - Error name:', error.name);
+      console.error('   - Error message:', error.message);
+      console.error('   - Error code:', error.code);
+      console.error('   - Error stack:', error.stack);
+
+      // Provide more helpful error messages
+      let errorMessage = error.message || 'Failed to get notification permission';
+
+      if (error.code === 'messaging/permission-blocked') {
+        errorMessage = 'Notification permission is blocked. Please enable it in your browser settings.';
+      } else if (error.code === 'messaging/unsupported-browser') {
+        errorMessage = 'Your browser does not support push notifications.';
+      } else if (error.message?.includes('service worker')) {
+        errorMessage = 'Service worker registration failed. Please refresh the page and try again.';
+      }
+
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: error.message || 'Failed to get notification permission'
+        error: errorMessage
       }));
       return null;
     }
@@ -147,19 +191,27 @@ export const usePushNotifications = (currentUser: User | null) => {
     const unsubscribe = onMessage(messaging as Messaging, (payload) => {
       console.log('📨 Foreground message received:', payload);
 
-      // Show notification even when app is open
-      const notificationTitle = payload.notification?.title || 'إشعار جديد';
-      const notificationOptions = {
-        body: payload.notification?.body || 'لديك إشعار جديد',
-        icon: '/vite.svg',
-        tag: payload.data?.notificationId || 'default',
-        data: payload.data,
-        dir: 'rtl' as NotificationDirection,
-        lang: 'ar'
-      };
+      try {
+        // Show notification even when app is open - ALL MESSAGES IN ENGLISH
+        const notificationTitle = payload.notification?.title || 'New Notification';
+        const notificationOptions = {
+          body: payload.notification?.body || 'You have a new notification',
+          icon: '/logo.png',
+          tag: payload.data?.notificationId || 'default',
+          data: payload.data,
+          dir: 'ltr' as NotificationDirection,
+          lang: 'en',
+          requireInteraction: true
+        };
 
-      if (Notification.permission === 'granted') {
-        new Notification(notificationTitle, notificationOptions);
+        if (Notification.permission === 'granted') {
+          console.log('✅ Showing foreground notification');
+          new Notification(notificationTitle, notificationOptions);
+        } else {
+          console.warn('⚠️ Cannot show foreground notification - permission not granted');
+        }
+      } catch (error) {
+        console.error('❌ Error showing foreground notification:', error);
       }
 
       // You can also show a toast or update UI here

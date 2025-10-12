@@ -4,6 +4,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { getAuthErrorMessage } from '../utils/authErrorHandler';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface LoginPageProps {
     onLogin: (email: string, password: string) => Promise<true | string>;
@@ -19,6 +21,7 @@ const UserIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" stroke
 const LockIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>;
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -33,7 +36,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         try {
             // Basic validation
             if (!email.trim() || !password.trim()) {
-                setError('يرجى ملء جميع الحقول');
+                setError(t('auth.errors.fillAllFields'));
                 setIsLoading(false);
                 return;
             }
@@ -44,7 +47,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             // 2. Skip email verification for development
             // TODO: Re-enable email verification in production
             // if (!userCredential.user.emailVerified) {
-            //     setError('يرجى تفعيل البريد الإلكتروني أولاً');
+            //     setError(t('auth.errors.emailNotVerified'));
             //     await signOut(auth);
             //     setIsLoading(false);
             //     return;
@@ -53,7 +56,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             // 3. Check if user exists in Firestore and is active
             const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
             if (!userDoc.exists()) {
-                setError('المستخدم غير مسجل في النظام');
+                setError(t('auth.errors.userNotInSystem'));
                 await signOut(auth);
                 setIsLoading(false);
                 return;
@@ -61,7 +64,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
             const userData = userDoc.data();
             if (!userData.isActive) {
-                setError('تم تعطيل هذا الحساب. يرجى الاتصال بالمسؤول');
+                setError(t('auth.errors.accountDisabled'));
                 await signOut(auth);
                 setIsLoading(false);
                 return;
@@ -77,7 +80,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
     const handleResendVerification = async () => {
         if (!email.trim()) {
-            setError('يرجى إدخال البريد الإلكتروني أولاً');
+            setError(t('auth.errors.enterEmailFirst'));
             return;
         }
 
@@ -86,9 +89,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
             await sendEmailVerification(userCredential.user);
             await signOut(auth);
-            setError('تم إرسال رابط التفعيل إلى بريدك الإلكتروني');
+            setError(t('auth.messages.verificationSent'));
         } catch (error: any) {
-            setError('فشل في إرسال رابط التفعيل');
+            setError(t('auth.errors.verificationFailed'));
         } finally {
             setIsLoading(false);
         }
@@ -97,12 +100,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     return (
         <>
             <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 font-sans">
+                {/* Language Switcher - Top Right */}
+                <div className="absolute top-4 right-4">
+                    <LanguageSwitcher />
+                </div>
+
                 <div className="max-w-md w-full mx-auto">
                     <div className="flex justify-center mb-6">
                         <LogoIcon />
                     </div>
-                    <h1 className="text-3xl font-bold text-center text-text-primary mb-2">نظام محاسبة قطع الغيار</h1>
-                    <p className="text-center text-text-secondary mb-8">تسجيل الدخول للمتابعة</p>
+                    <h1 className="text-3xl font-bold text-center text-text-primary mb-2">{t('auth.login.title')}</h1>
+                    <p className="text-center text-text-secondary mb-8">{t('auth.login.subtitle')}</p>
                     
                     <div className="bg-surface rounded-lg shadow-xl p-8">
                         <form onSubmit={handleSubmit} className="space-y-6">
@@ -114,7 +122,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="البريد الإلكتروني"
+                                    placeholder={t('auth.login.email')}
                                     className="w-full bg-background border border-gray-600 rounded-md p-3 pr-10 text-text-primary focus:ring-primary focus:border-primary placeholder-gray-500 text-left disabled:opacity-50"
                                     required
                                     disabled={isLoading}
@@ -128,7 +136,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="كلمة المرور"
+                                    placeholder={t('auth.login.password')}
                                     className="w-full bg-background border border-gray-600 rounded-md p-3 pr-10 text-text-primary focus:ring-primary focus:border-primary placeholder-gray-500 text-left disabled:opacity-50"
                                     required
                                     disabled={isLoading}
@@ -137,14 +145,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                             {error && (
                                 <div className="text-red-500 text-sm text-center space-y-2">
                                     <p>{error}</p>
-                                    {error.includes('تفعيل البريد') && (
+                                    {(error.includes('تفعيل') || error.includes('verify')) && (
                                         <button
                                             type="button"
                                             onClick={handleResendVerification}
                                             className="text-blue-400 hover:underline text-xs"
                                             disabled={isLoading}
                                         >
-                                            إعادة إرسال رابط التفعيل
+                                            {t('auth.login.resendVerification')}
                                         </button>
                                     )}
                                 </div>
@@ -158,10 +166,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                                     {isLoading ? (
                                         <div className="flex items-center justify-center">
                                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                            جار التسجيل...
+                                            {t('auth.login.loggingIn')}
                                         </div>
                                     ) : (
-                                        'تسجيل الدخول'
+                                        t('auth.login.loginButton')
                                     )}
                                 </button>
                             </div>
@@ -172,7 +180,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                                 onClick={() => setIsForgotPasswordOpen(true)}
                                 className="text-sm text-accent hover:underline focus:outline-none"
                             >
-                                هل نسيت كلمة المرور؟
+                                {t('auth.login.forgotPassword')}
                             </button>
                         </div>
                     </div>

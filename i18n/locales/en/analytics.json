@@ -1,0 +1,85 @@
+{
+  "title": "Analytics",
+  "subtitle": "Financial performance analysis and trends",
+  "periods": {
+    "today": "Today",
+    "week": "This Week",
+    "month": "This Month",
+    "all": "All Time",
+    "custom": "Custom",
+    "period": "Period",
+    "financialYear": "Financial Year"
+  },
+  "filters": {
+    "shop": "Shop",
+    "allShops": "All Shops",
+    "period": "Period",
+    "metric": "Metric",
+    "selectFinancialYear": "Select Financial Year",
+    "usePeriodFilters": "Use Period Filters",
+    "customRange": "Custom Date Range",
+    "from": "From",
+    "to": "To"
+  },
+  "charts": {
+    "revenue": "Revenue",
+    "expenses": "Expenses",
+    "profit": "Profit",
+    "trend": "Trend",
+    "breakdown": "Breakdown",
+    "comparison": "Comparison",
+    "dailyProfit": "Daily Profit Trend",
+    "expenseBreakdown": "Expense Breakdown by Type",
+    "revenueVsExpenses": "Revenue vs Expenses",
+    "topAccounts": "Top Accounts by Activity",
+    "shopComparison": "Shop Comparison",
+    "monthlyTrend": "Monthly Trend"
+  },
+  "metrics": {
+    "totalRevenue": "Total Revenue",
+    "totalExpenses": "Total Expenses",
+    "totalSales": "Total Sales",
+    "totalPurchases": "Total Purchases",
+    "netProfit": "Net Profit",
+    "profitMargin": "Profit Margin",
+    "growth": "Growth",
+    "avgTransaction": "Average Transaction",
+    "cashBalance": "Total Cash",
+    "bankBalance": "Total Bank",
+    "totalDebtors": "Total Debtors",
+    "totalCreditors": "Total Creditors",
+    "numberOfTransactions": "Number of Transactions"
+  },
+  "insights": {
+    "title": "Insights",
+    "positive": "Positive",
+    "warning": "Warning",
+    "critical": "Critical",
+    "noInsights": "No insights available",
+    "profitableMonth": "Profitable month with {profit} in net profit",
+    "highExpenses": "High expenses detected: {amount}",
+    "lowRevenue": "Revenue below average: {amount}",
+    "cashFlowPositive": "Positive cash flow trend"
+  },
+  "labels": {
+    "sales": "Sales",
+    "purchases": "Purchases",
+    "expenses": "Expenses",
+    "transfers": "Transfers",
+    "date": "Date",
+    "amount": "Amount",
+    "account": "Account",
+    "noData": "No data available for this period",
+    "loading": "Loading analytics..."
+  },
+  "summary": {
+    "title": "Summary",
+    "period": "Period Summary",
+    "overall": "Overall Performance"
+  },
+  "export": {
+    "pdf": "Export PDF",
+    "excel": "Export Excel",
+    "print": "Print"
+  }
+}

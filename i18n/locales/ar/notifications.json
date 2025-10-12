@@ -1,0 +1,60 @@
+{
+  "title": "الإشعارات",
+  "subtitle": "إشعارات النظام والتحديثات",
+  "filters": {
+    "all": "الكل",
+    "unread": "غير المقروءة",
+    "read": "المقروءة",
+    "type": "النوع"
+  },
+  "actions": {
+    "markAllRead": "تحديد الكل كمقروء",
+    "deleteAll": "حذف الكل",
+    "deleteSelected": "حذف المحدد",
+    "refresh": "تحديث"
+  },
+  "list": {
+    "empty": "لا توجد إشعارات",
+    "noUnread": "لا توجد إشعارات غير مقروءة",
+    "showing": "عرض {count} إشعار"
+  },
+  "item": {
+    "delete": "حذف",
+    "markRead": "تحديد كمقروء",
+    "markUnread": "تحديد كغير مقروء"
+  },
+  "types": {
+    "system": "نظام",
+    "transaction": "معاملة",
+    "user": "مستخدم",
+    "shop": "متجر",
+    "account": "حساب"
+  },
+  "messages": {
+    "deleteConfirm": "هل تريد حذف هذا الإشعار؟",
+    "deleteAllConfirm": "هل تريد حذف جميع الإشعارات؟",
+    "markedRead": "تم تحديد الإشعارات كمقروءة",
+    "deleted": "تم حذف الإشعارات"
+  },
+  "events": {
+    "transactionAdded": "أضاف {userName} معاملة جديدة في {shopName}: ({type}) - {amount}",
+    "transactionUpdated": "قام {userName} بتحديث معاملة في {shopName}",
+    "transactionDeleted": "قام {userName} بحذف معاملة في {shopName}",
+    "accountCreated": "أنشأ {userName} حساباً جديداً: {accountName}",
+    "accountUpdated": "قام {userName} بتحديث الحساب: {accountName}",
+    "accountDeleted": "قام {userName} بحذف الحساب: {accountName}",
+    "shopCreated": "تم إنشاء متجر جديد: {shopName}",
+    "shopUpdated": "تم تحديث المتجر: {shopName}",
+    "shopDeleted": "تم حذف المتجر: {shopName}",
+    "userCreated": "تم إنشاء مستخدم جديد: {userName}",
+    "userUpdated": "تم تحديث المستخدم: {userName}",
+    "userDeleted": "تم حذف المستخدم: {userName}",
+    "financialYearCreated": "تم إنشاء سنة مالية جديدة: {yearName}",
+    "financialYearClosed": "تم إغلاق السنة المالية: {yearName}",
+    "userLogin": "قام {userName} بتسجيل الدخول",
+    "userLogout": "قام {userName} بتسجيل الخروج",
+    "systemUpdate": "تحديث النظام: {message}",
+    "systemError": "خطأ في النظام: {message}",
+    "systemWarning": "تحذير: {message}"
+  }
+}

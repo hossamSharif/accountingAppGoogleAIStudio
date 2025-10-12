@@ -1,5 +1,6 @@
 import React from 'react';
 import { User, Page, Notification, LogType } from '../types';
+import { useTranslation } from '../i18n/useTranslation';
 
 // Icons
 const DashboardIcon = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>;
@@ -61,24 +62,25 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, targetPage, currentPage,
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ page, setPage, currentUser, notifications, onMarkNotificationsRead, isOpen, isDesktop, onClose }) => {
+    const { t } = useTranslation();
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
     const userNavItems = [
-        { icon: <DashboardIcon />, label: 'لوحة التحكم', page: Page.DASHBOARD },
-        { icon: <AccountsIcon />, label: 'شجرة الحسابات', page: Page.ACCOUNTS },
-        { icon: <TransactionsIcon />, label: 'سجل الحركات', page: Page.TRANSACTIONS },
-        { icon: <StatementIcon />, label: 'كشف حساب', page: Page.STATEMENT },
-        { icon: <AnalyticsIcon />, label: 'التحليلات', page: Page.ANALYTICS },
-        { icon: <ProfileIcon />, label: 'الملف الشخصي', page: Page.PROFILE },
+        { icon: <DashboardIcon />, label: t('common.navigation.dashboard'), page: Page.DASHBOARD },
+        { icon: <AccountsIcon />, label: t('common.navigation.accounts'), page: Page.ACCOUNTS },
+        { icon: <TransactionsIcon />, label: t('common.navigation.transactions'), page: Page.TRANSACTIONS },
+        { icon: <StatementIcon />, label: t('common.navigation.statement'), page: Page.STATEMENT },
+        { icon: <AnalyticsIcon />, label: t('common.navigation.analytics'), page: Page.ANALYTICS },
+        { icon: <ProfileIcon />, label: t('common.navigation.profile'), page: Page.PROFILE },
     ];
 
     const adminNavItems = [
-        { icon: <DashboardIcon />, label: 'لوحة التحكم', page: Page.DASHBOARD },
-        { icon: <TransactionsIcon />, label: 'سجل الحركات', page: Page.TRANSACTIONS },
-        { icon: <StatementIcon />, label: 'كشف حساب', page: Page.STATEMENT },
-        { icon: <AnalyticsIcon />, label: 'التحليلات', page: Page.ANALYTICS },
-        { icon: <ShopLogsIcon />, label: 'سجلات المتاجر', page: Page.SHOP_LOGS },
-        { icon: <SettingsIcon />, label: 'الإعدادات', page: Page.SETTINGS },
+        { icon: <DashboardIcon />, label: t('common.navigation.dashboard'), page: Page.DASHBOARD },
+        { icon: <TransactionsIcon />, label: t('common.navigation.transactions'), page: Page.TRANSACTIONS },
+        { icon: <StatementIcon />, label: t('common.navigation.statement'), page: Page.STATEMENT },
+        { icon: <AnalyticsIcon />, label: t('common.navigation.analytics'), page: Page.ANALYTICS },
+        { icon: <ShopLogsIcon />, label: t('common.navigation.shopLogs'), page: Page.SHOP_LOGS },
+        { icon: <SettingsIcon />, label: t('common.navigation.settings'), page: Page.SETTINGS },
     ];
 
     const navItems = currentUser.role === 'admin' ? adminNavItems : userNavItems;
@@ -93,8 +95,8 @@ const Sidebar: React.FC<SidebarProps> = ({ page, setPage, currentUser, notificat
             `}
         >
             <div className="flex items-center justify-center py-4 mb-6">
-                <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1h4v1m-4 10v-1h4v1m-4-7h-2l-1 1v1h3v1h-3v1l1 1h2m0-7V7m0 1v.01"></path></svg>
-                <h1 className="text-xl font-bold mr-2">محاسبة</h1>
+                <img src="/logo.png" alt="Logo" className="w-10 h-10 ml-2" />
+                <h1 className="text-xl font-bold mr-2">{t('common.app.name')}</h1>
             </div>
             <nav className="flex-1">
                 {navItems.map(item => (
@@ -111,7 +113,7 @@ const Sidebar: React.FC<SidebarProps> = ({ page, setPage, currentUser, notificat
                 {/* Notifications are visible to all */}
                 <NavItem
                     icon={<NotificationIcon />}
-                    label="الإشعارات"
+                    label={t('common.navigation.notifications')}
                     targetPage={Page.NOTIFICATIONS}
                     currentPage={page}
                     setPage={setPage}

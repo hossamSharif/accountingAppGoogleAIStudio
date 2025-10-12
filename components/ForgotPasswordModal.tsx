@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 import { getAuthErrorMessage, getAuthSuccessMessage } from '../utils/authErrorHandler';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface ForgotPasswordModalProps {
     isOpen: boolean;
@@ -9,6 +10,7 @@ interface ForgotPasswordModalProps {
 }
 
 const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClose }) => {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -20,14 +22,14 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClo
         setSuccess('');
 
         if (!email.trim()) {
-            setError('يرجى إدخال البريد الإلكتروني');
+            setError(t('auth.errors.emailRequired'));
             return;
         }
 
         setIsLoading(true);
         try {
             await sendPasswordResetEmail(auth, email.trim());
-            setSuccess(getAuthSuccessMessage('password-reset'));
+            setSuccess(t('auth.messages.resetLinkSent'));
 
             // Auto-close after 3 seconds
             setTimeout(() => {
@@ -59,7 +61,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClo
         >
             <div className="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md m-4 transform transition-all duration-300 scale-95 opacity-0 animate-fade-in-scale">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-text-primary">استعادة كلمة المرور</h2>
+                    <h2 className="text-xl font-bold text-text-primary">{t('auth.forgotPassword.title')}</h2>
                     <button
                         onClick={handleClose}
                         className="text-gray-400 hover:text-gray-300"
@@ -72,13 +74,13 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClo
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-text-primary mb-2">
-                            البريد الإلكتروني
+                            {t('auth.forgotPassword.email')}
                         </label>
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="أدخل بريدك الإلكتروني"
+                            placeholder={t('auth.forgotPassword.emailPlaceholder')}
                             className="w-full bg-background border border-gray-600 rounded-md p-3 text-text-primary focus:ring-primary focus:border-primary placeholder-gray-500 disabled:opacity-50"
                             required
                             disabled={isLoading}
@@ -104,27 +106,27 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClo
                             className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
                             disabled={isLoading}
                         >
-                            إلغاء
+                            {t('auth.forgotPassword.cancel')}
                         </button>
                         <button
                             type="submit"
-                            disabled={isLoading || success}
+                            disabled={isLoading || !!success}
                             className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:opacity-50"
                         >
                             {isLoading ? (
                                 <div className="flex items-center justify-center">
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                    جار الإرسال...
+                                    {t('auth.forgotPassword.sending')}
                                 </div>
                             ) : (
-                                'إرسال الرابط'
+                                t('auth.forgotPassword.sendLink')
                             )}
                         </button>
                     </div>
                 </form>
 
                 <div className="mt-4 text-xs text-gray-400 text-center">
-                    سيتم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني
+                    {t('auth.forgotPassword.description')}
                 </div>
             </div>
             <style>{`

@@ -1,6 +1,8 @@
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import autoTable from 'jspdf-autotable';
+import { translate } from './translate';
+import type { Language } from '../i18n/i18nContext';
 
 /**
  * Enhanced PDF Export with proper Arabic support using html2canvas
@@ -10,6 +12,7 @@ interface ExportOptions {
     fileName: string;
     title?: string;
     orientation?: 'portrait' | 'landscape';
+    language?: Language;
 }
 
 /**
@@ -69,7 +72,7 @@ export const exportHTMLToPDF = async (
 };
 
 /**
- * Create a printable HTML table with Arabic text
+ * Create a printable HTML table with bilingual text support
  * This creates a temporary hidden div with the table for export
  */
 export const createPrintableTable = (
@@ -77,8 +80,13 @@ export const createPrintableTable = (
     data: any[][],
     title: string,
     subtitle?: string,
-    summary?: { label: string; value: string }[]
+    summary?: { label: string; value: string }[],
+    language: Language = 'ar'
 ): HTMLDivElement => {
+    const isRTL = language === 'ar';
+    const direction = isRTL ? 'rtl' : 'ltr';
+    const textAlign = isRTL ? 'right' : 'left';
+
     const container = document.createElement('div');
     container.style.cssText = `
         position: absolute;
@@ -88,7 +96,7 @@ export const createPrintableTable = (
         padding: 20px;
         background: white;
         font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-        direction: rtl;
+        direction: ${direction};
     `;
 
     // Title
@@ -158,10 +166,10 @@ export const createPrintableTable = (
     headers.forEach(header => {
         const th = document.createElement('th');
         th.style.cssText = `
-            background-color: #0d9488;
+            background-color: #FDB913;
             color: white;
             padding: 10px;
-            text-align: right;
+            text-align: ${textAlign};
             border: 1px solid #ddd;
             font-size: 14px;
         `;
@@ -184,7 +192,7 @@ export const createPrintableTable = (
             td.style.cssText = `
                 padding: 8px;
                 border: 1px solid #ddd;
-                text-align: right;
+                text-align: ${textAlign};
                 font-size: 13px;
                 color: #333;
             `;
@@ -205,14 +213,16 @@ export const createPrintableTable = (
         color: #999;
         font-size: 12px;
     `;
-    footer.textContent = `تم التصدير: ${new Date().toLocaleDateString('ar-SA')}`;
+    const exportedLabel = translate('exports.pdf.generatedOn', language);
+    const locale = language === 'ar' ? 'ar-SA' : 'en-US';
+    footer.textContent = `${exportedLabel}: ${new Date().toLocaleDateString(locale)}`;
     container.appendChild(footer);
 
     return container;
 };
 
 /**
- * Export table data to PDF with proper Arabic support
+ * Export table data to PDF with bilingual support
  */
 export const exportTableToPDF = async (
     headers: string[],
@@ -223,16 +233,20 @@ export const exportTableToPDF = async (
         subtitle?: string;
         summary?: { label: string; value: string }[];
         orientation?: 'portrait' | 'landscape';
+        language?: Language;
     }
 ): Promise<void> => {
     try {
+        const language = options?.language || 'ar';
+
         // Create printable table
         const tableDiv = createPrintableTable(
             headers,
             data,
             title,
             options?.subtitle,
-            options?.summary
+            options?.summary,
+            language
         );
 
         // Add to document temporarily
@@ -249,7 +263,8 @@ export const exportTableToPDF = async (
         await exportHTMLToPDF(uniqueId, {
             fileName,
             title,
-            orientation: options?.orientation
+            orientation: options?.orientation,
+            language
         });
 
         // Clean up
@@ -310,7 +325,7 @@ export const exportWithCanvas = (
 };
 
 /**
- * Simple method to generate PDF with Arabic text using DOM rendering
+ * Simple method to generate PDF with bilingual support using DOM rendering
  */
 export const generateArabicPDF = async (
     transactions: any[],
@@ -320,22 +335,40 @@ export const generateArabicPDF = async (
         shopName?: string;
         dateRange?: string;
         summary?: { label: string; value: string }[];
+        language?: Language;
     }
 ): Promise<void> => {
-    // Prepare headers
-    const headers = ['التاريخ', 'النوع', 'البيان', 'الوصف', 'المبلغ'];
+    const language = options?.language || 'ar';
+    const locale = language === 'ar' ? 'ar-SA' : 'en-US';
+
+    // Prepare headers with translation
+    const headers = [
+        translate('exports.headers.date', language),
+        translate('exports.headers.type', language),
+        language === 'ar' ? 'البيان' : 'Context',
+        translate('exports.headers.description', language),
+        translate('exports.headers.amount', language)
+    ];
+
+    // Transaction type translation helper
+    const translateType = (type: string): string => {
+        const typeMap: Record<string, { ar: string; en: string }> = {
+            'SALE': { ar: 'مبيعات', en: 'Sales' },
+            'PURCHASE': { ar: 'مشتريات', en: 'Purchases' },
+            'EXPENSE': { ar: 'مصروفات', en: 'Expenses' },
+            'INCOME': { ar: 'إيرادات', en: 'Income' },
+            'TRANSFER': { ar: 'تحويل', en: 'Transfer' }
+        };
+        return typeMap[type]?.[language] || type;
+    };
 
     // Prepare data
     const data = transactions.map(t => [
-        new Date(t.date).toLocaleDateString('ar-SA'),
-        t.type === 'SALE' ? 'مبيعات' :
-        t.type === 'PURCHASE' ? 'مشتريات' :
-        t.type === 'EXPENSE' ? 'مصروفات' :
-        t.type === 'INCOME' ? 'إيرادات' :
-        t.type === 'TRANSFER' ? 'تحويل' : t.type,
+        new Date(t.date).toLocaleDateString(locale),
+        translateType(t.type),
         t.context || '',
         t.description || '-',
-        t.totalAmount?.toLocaleString('ar-SA') || '0'
+        t.totalAmount?.toLocaleString(locale) || '0'
     ]);
 
     // Create subtitle
@@ -351,6 +384,7 @@ export const generateArabicPDF = async (
     await exportTableToPDF(headers, data, title, fileName, {
         subtitle,
         summary: options?.summary,
-        orientation: 'portrait'
+        orientation: 'portrait',
+        language
     });
 };

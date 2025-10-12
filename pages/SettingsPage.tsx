@@ -6,13 +6,13 @@ import UserManagementPage from './UserManagementPage';
 import ShopAccountsView from './ShopAccountsView';
 import AccountsPage from './AccountsPage';
 import { FinancialYearManagementPage } from './FinancialYearManagementPage';
+import { useTranslation } from '../i18n/useTranslation';
 
 enum SettingsTab {
-    SHOPS = 'إدارة المتاجر',
-    USERS = 'إدارة المستخدمين',
-    FINANCIAL_YEARS = 'السنوات المالية',
-    ACCOUNTS = 'شجرة الحسابات',
-    ADMIN_TOOLS = 'أدوات الإدارة'
+    SHOPS = 'shops',
+    USERS = 'users',
+    FINANCIAL_YEARS = 'financialYears',
+    ACCOUNTS = 'accounts'
 }
 
 interface SettingsPageProps {
@@ -46,6 +46,7 @@ const PlusIcon = () => <svg className="w-5 h-5 ml-2" fill="none" stroke="current
 
 
 const SettingsPage: React.FC<SettingsPageProps> = (props) => {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<SettingsTab>(SettingsTab.SHOPS);
     const [viewingAccountsForShop, setViewingAccountsForShop] = useState<Shop | null>(null);
 
@@ -53,8 +54,8 @@ const SettingsPage: React.FC<SettingsPageProps> = (props) => {
     if (!props.currentUser) {
         return (
             <div className="text-center bg-surface p-8 rounded-lg">
-                <h2 className="text-2xl font-bold mb-2">يتطلب تسجيل الدخول</h2>
-                <p className="text-text-secondary">يجب عليك تسجيل الدخول للوصول إلى إعدادات النظام.</p>
+                <h2 className="text-2xl font-bold mb-2">{t('settings.messages.loginRequired')}</h2>
+                <p className="text-text-secondary">{t('settings.messages.loginRequiredMessage')}</p>
             </div>
         );
     }
@@ -98,29 +99,12 @@ const SettingsPage: React.FC<SettingsPageProps> = (props) => {
                 if (!props.activeShop) {
                     return (
                         <div className="text-center bg-surface p-8 rounded-lg mt-6">
-                            <h2 className="text-2xl font-bold mb-2">الرجاء تحديد متجر</h2>
-                            <p className="text-text-secondary">يجب عليك تحديد متجر من القائمة في الأعلى لعرض شجرة الحسابات الخاصة به.</p>
+                            <h2 className="text-2xl font-bold mb-2">{t('settings.messages.selectShop')}</h2>
+                            <p className="text-text-secondary">{t('settings.messages.selectShopMessage')}</p>
                         </div>
                     );
                 }
                 return <AccountsPage />;
-            case SettingsTab.ADMIN_TOOLS:
-                return (
-                    <div className="p-6">
-                        <h2 className="text-xl font-bold mb-4">أدوات الإدارة</h2>
-                        <p>المستخدم الحالي: {props.currentUser!.name}</p>
-                        <p>الدور: {props.currentUser!.role}</p>
-                        {props.currentUser!.role === 'admin' ? (
-                            <div className="mt-4 p-4 bg-blue-50 rounded">
-                                <p>أدوات الإدارة متاحة</p>
-                            </div>
-                        ) : (
-                            <div className="mt-4 p-4 bg-red-50 rounded">
-                                <p>غير مسموح لك بالوصول لأدوات الإدارة</p>
-                            </div>
-                        )}
-                    </div>
-                );
             default:
                 return null;
         }
@@ -128,7 +112,7 @@ const SettingsPage: React.FC<SettingsPageProps> = (props) => {
     
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold">إعدادات النظام</h1>
+            <h1 className="text-3xl font-bold">{t('settings.title')}</h1>
 
             <div className="bg-surface rounded-lg p-2 shadow-md">
                 <div className="flex space-x-2 space-x-reverse">
@@ -138,12 +122,12 @@ const SettingsPage: React.FC<SettingsPageProps> = (props) => {
                             onClick={() => setActiveTab(tab)}
                             className={`px-4 py-2 rounded-md font-medium transition-colors duration-300 ${activeTab === tab ? 'bg-primary text-white' : 'text-text-secondary hover:bg-background'}`}
                         >
-                            {tab}
+                            {t(`settings.tabs.${tab}`)}
                         </button>
                     ))}
                 </div>
             </div>
-            
+
             <div className="mt-6">
                 {renderActiveTab()}
             </div>

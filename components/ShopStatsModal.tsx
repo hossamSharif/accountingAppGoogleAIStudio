@@ -104,7 +104,7 @@ const ShopStatsModal: React.FC<ShopStatsModalProps> = ({
                         </div>
 
                         {/* Financial Summary */}
-                        <div className="bg-gradient-to-r from-blue-900/30 to-green-900/30 p-6 rounded-lg border-2 border-teal-500">
+                        <div className="bg-gradient-to-r from-blue-900/30 to-green-900/30 p-6 rounded-lg border-2 border-yellow-500">
                             <h3 className="text-lg font-semibold mb-4 text-text-primary">الملخص المالي</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="text-center">

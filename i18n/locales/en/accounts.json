@@ -1,0 +1,118 @@
+{
+  "title": "Chart of Accounts",
+  "subtitle": "Manage account directory and balances",
+  "search": {
+    "placeholder": "Search by name or code...",
+    "byCode": "By Code",
+    "byName": "By Name"
+  },
+  "filters": {
+    "all": "All",
+    "active": "Active",
+    "inactive": "Inactive",
+    "classification": "Classification",
+    "type": "Type",
+    "allShops": "All Shops",
+    "allClassifications": "All Classifications",
+    "allNatures": "All Natures",
+    "shop": "Shop",
+    "nature": "Nature"
+  },
+  "actions": {
+    "create": "Add New Account",
+    "createSub": "Create Sub-Account",
+    "edit": "Edit",
+    "delete": "Delete",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "export": "Export CSV",
+    "print": "Print"
+  },
+  "table": {
+    "columns": {
+      "code": "Code",
+      "name": "Account Name",
+      "nameArabic": "Account Name (Arabic)",
+      "nameEnglish": "Account Name (English)",
+      "classification": "Classification",
+      "nature": "Nature",
+      "type": "Type",
+      "balance": "Current Balance",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "empty": "No accounts match your search or no accounts have been added yet."
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "messages": {
+    "created": "Account created successfully",
+    "updated": "Account updated successfully",
+    "deleted": "Account deleted successfully",
+    "activated": "Account activated",
+    "deactivated": "Account deactivated",
+    "deleteError": "Cannot delete account with associated transactions",
+    "deleteConfirm": "Are you sure you want to delete account \"{name}\"? This action cannot be undone.",
+    "toggleConfirm": "Are you sure you want to {action} account \"{name}\"?",
+    "toggleActive": "deactivate",
+    "toggleInactive": "activate",
+    "confirmToggleTitle": "Confirm {action}",
+    "confirmDeleteTitle": "Confirm Deletion",
+    "deleteWarning": "This will delete the account and all sub-accounts",
+    "errorLoading": "Error loading user data",
+    "errorLoadingAccounts": "Error loading accounts",
+    "errorLoadingTransactions": "Error loading transactions",
+    "errorDatabase": "Error connecting to database",
+    "errorSaving": "An error occurred while saving the account",
+    "errorToggling": "An error occurred while changing account status",
+    "errorDeleting": "An error occurred while deleting the account",
+    "loginRequired": "You must login first",
+    "shopNotFound": "Shop ID not found"
+  },
+  "validation": {
+    "nameRequired": "Account name is required",
+    "codeRequired": "Account code is required",
+    "classificationRequired": "Classification is required",
+    "natureRequired": "Nature is required",
+    "typeRequired": "Type is required",
+    "parentRequired": "Parent account is required for sub-accounts",
+    "duplicateCode": "Account code already exists",
+    "duplicateName": "Account name already exists"
+  },
+  "form": {
+    "title": {
+      "create": "Add New Account",
+      "edit": "Edit Account",
+      "createSub": "Create Sub-Account"
+    },
+    "accountCode": "Account Code",
+    "accountCodePlaceholder": "e.g., 5101",
+    "accountName": "Account Name",
+    "accountNamePlaceholder": "e.g., Rent Expense",
+    "accountNameArabic": "Account Name (Arabic)",
+    "accountNameEnglish": "Account Name (English)",
+    "classification": "Classification",
+    "nature": "Nature",
+    "type": "Type",
+    "parentAccount": "Parent Account",
+    "selectParent": "Select Parent Account",
+    "noParent": "Main Account",
+    "openingBalance": "Opening Balance (optional)",
+    "openingBalancePlaceholder": "e.g., 1500 for Debit, -500 for Credit",
+    "category": "Category",
+    "isActive": "Account Active",
+    "notes": "Notes",
+    "automatic": "Automatic",
+    "optional": "Optional",
+    "saveChanges": "Save Changes",
+    "addAccount": "Add Account",
+    "cancel": "Cancel"
+  },
+  "loading": "Loading...",
+  "noUser": {
+    "title": "You must login first",
+    "description": "Please login to access the chart of accounts"
+  }
+}

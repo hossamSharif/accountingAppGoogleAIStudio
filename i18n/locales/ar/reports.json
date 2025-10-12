@@ -1,0 +1,120 @@
+{
+  "title": "التقارير المالية",
+  "subtitle": "إنشاء وعرض التقارير المالية والتحليلات",
+  "types": {
+    "trialBalance": "ميزان المراجعة",
+    "profitLoss": "قائمة الأرباح والخسائر",
+    "balanceSheet": "الميزانية العمومية",
+    "cashFlow": "قائمة التدفقات النقدية",
+    "accountsReceivable": "حسابات المدينين",
+    "accountsPayable": "حسابات الدائنين"
+  },
+  "filters": {
+    "dateRange": "نطاق التاريخ",
+    "from": "من",
+    "to": "إلى",
+    "shop": "المتجر",
+    "allShops": "جميع المتاجر",
+    "period": "الفترة",
+    "custom": "مخصص",
+    "thisMonth": "هذا الشهر",
+    "lastMonth": "الشهر الماضي",
+    "thisQuarter": "هذا الربع",
+    "thisYear": "هذا العام"
+  },
+  "actions": {
+    "generate": "إنشاء التقرير",
+    "export": "تصدير",
+    "print": "طباعة",
+    "refresh": "تحديث"
+  },
+  "trialBalance": {
+    "title": "ميزان المراجعة",
+    "subtitle": "ملخص أرصدة جميع الحسابات",
+    "columns": {
+      "accountCode": "الرمز",
+      "accountName": "اسم الحساب",
+      "debit": "مدين",
+      "credit": "دائن"
+    },
+    "totals": {
+      "totalDebit": "إجمالي مدين",
+      "totalCredit": "إجمالي دائن",
+      "difference": "الفرق"
+    },
+    "balanced": "ميزان المراجعة متوازن",
+    "notBalanced": "تحذير: ميزان المراجعة غير متوازن"
+  },
+  "profitLoss": {
+    "title": "قائمة الأرباح والخسائر",
+    "subtitle": "ملخص الإيرادات والمصروفات",
+    "sections": {
+      "revenue": "الإيرادات",
+      "costOfGoodsSold": "تكلفة البضاعة المباعة",
+      "grossProfit": "مجمل الربح",
+      "operatingExpenses": "المصروفات التشغيلية",
+      "netProfit": "صافي الربح",
+      "netLoss": "صافي الخسارة"
+    },
+    "items": {
+      "sales": "المبيعات",
+      "salesReturns": "مردودات المبيعات",
+      "netSales": "صافي المبيعات",
+      "openingStock": "بضاعة أول المدة",
+      "purchases": "المشتريات",
+      "purchaseReturns": "مردودات المشتريات",
+      "closingStock": "بضاعة آخر المدة",
+      "totalCOGS": "إجمالي تكلفة البضاعة المباعة"
+    }
+  },
+  "balanceSheet": {
+    "title": "الميزانية العمومية",
+    "subtitle": "الأصول والخصوم وحقوق الملكية",
+    "sections": {
+      "assets": "الأصول",
+      "currentAssets": "الأصول المتداولة",
+      "fixedAssets": "الأصول الثابتة",
+      "totalAssets": "إجمالي الأصول",
+      "liabilities": "الخصوم",
+      "currentLiabilities": "الخصوم المتداولة",
+      "longTermLiabilities": "الخصوم طويلة الأجل",
+      "totalLiabilities": "إجمالي الخصوم",
+      "equity": "حقوق الملكية",
+      "totalEquity": "إجمالي حقوق الملكية",
+      "totalLiabilitiesEquity": "إجمالي الخصوم وحقوق الملكية"
+    },
+    "items": {
+      "cash": "النقدية",
+      "bank": "البنك",
+      "accountsReceivable": "حسابات المدينين",
+      "inventory": "المخزون",
+      "accountsPayable": "حسابات الدائنين",
+      "ownerEquity": "رأس المال",
+      "retainedEarnings": "الأرباح المحتجزة"
+    }
+  },
+  "cashFlow": {
+    "title": "قائمة التدفقات النقدية",
+    "subtitle": "التدفقات النقدية الداخلة والخارجة",
+    "sections": {
+      "operatingActivities": "الأنشطة التشغيلية",
+      "investingActivities": "الأنشطة الاستثمارية",
+      "financingActivities": "الأنشطة التمويلية",
+      "netCashFlow": "صافي التدفق النقدي"
+    },
+    "items": {
+      "cashFromSales": "النقد من المبيعات",
+      "cashPaidPurchases": "النقد المدفوع للمشتريات",
+      "cashPaidExpenses": "النقد المدفوع للمصروفات",
+      "beginningCash": "الرصيد النقدي الافتتاحي",
+      "endingCash": "الرصيد النقدي الختامي"
+    }
+  },
+  "messages": {
+    "generating": "جاري إنشاء التقرير...",
+    "generated": "تم إنشاء التقرير بنجاح",
+    "error": "خطأ في إنشاء التقرير",
+    "noData": "لا توجد بيانات للفترة المحددة",
+    "selectPeriod": "يرجى تحديد فترة لإنشاء التقرير"
+  }
+}

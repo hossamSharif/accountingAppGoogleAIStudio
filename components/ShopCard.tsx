@@ -2,6 +2,8 @@ import React from 'react';
 import { Shop, User } from '../types';
 import { ShopStats } from '../hooks/useShopData';
 import { formatCurrency } from '../utils/formatting';
+import { useTranslation } from '../i18n/useTranslation';
+import { getBilingualText } from '../utils/bilingual';
 
 interface ShopCardProps {
     shop: Shop;
@@ -30,10 +32,16 @@ const ShopCard: React.FC<ShopCardProps> = ({
     onViewUsers,
     isLoading = false
 }) => {
+    const { t, language } = useTranslation();
+
     const formatDate = (dateString?: string) => {
-        if (!dateString) return 'لا يوجد';
-        return new Date(dateString).toLocaleDateString('en-US');
+        if (!dateString) return t('common.ui.noData');
+        return new Date(dateString).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US');
     };
+
+    // Get bilingual name and description
+    const shopName = getBilingualText(shop.name, (shop as any).nameEn, language);
+    const shopDescription = getBilingualText(shop.description, (shop as any).descriptionEn, language);
 
     return (
         <div className={`bg-surface rounded-lg shadow-lg border-2 transition-all duration-300 hover:shadow-xl ${
@@ -50,7 +58,7 @@ const ShopCard: React.FC<ShopCardProps> = ({
                                 shop.isActive ? 'bg-green-400' : 'bg-red-400'
                             }`} />
                             <h3 className="text-lg font-bold text-text-primary truncate">
-                                {shop.name}
+                                {shopName}
                             </h3>
                             {shop.shopCode && (
                                 <span className="text-xs bg-blue-900/50 text-blue-300 px-2 py-1 rounded border border-blue-500">
@@ -58,9 +66,9 @@ const ShopCard: React.FC<ShopCardProps> = ({
                                 </span>
                             )}
                         </div>
-                        {shop.description && (
+                        {shopDescription && (
                             <p className="text-text-secondary text-sm mt-1 line-clamp-2">
-                                {shop.description}
+                                {shopDescription}
                             </p>
                         )}
                     </div>
@@ -71,7 +79,7 @@ const ShopCard: React.FC<ShopCardProps> = ({
                                 ? 'bg-green-900/50 text-green-300 border border-green-500'
                                 : 'bg-red-900/50 text-red-300 border border-red-500'
                         }`}>
-                            {shop.isActive ? 'نشط' : 'غير نشط'}
+                            {shop.isActive ? t('shops.status.active') : t('shops.status.inactive')}
                         </span>
                     </div>
                 </div>
@@ -85,14 +93,14 @@ const ShopCard: React.FC<ShopCardProps> = ({
                             <div className="text-2xl font-bold text-blue-300">
                                 {stats.accountsCount}
                             </div>
-                            <div className="text-xs text-blue-200">الحسابات</div>
+                            <div className="text-xs text-blue-200">{t('shops.list.columns.accounts')}</div>
                         </div>
 
                         <div className="text-center p-3 bg-green-900/30 rounded-lg border-2 border-green-500">
                             <div className="text-2xl font-bold text-green-300">
                                 {stats.transactionsCount}
                             </div>
-                            <div className="text-xs text-green-200">المعاملات</div>
+                            <div className="text-xs text-green-200">{t('transactions.title')}</div>
                         </div>
 
                         <div className="col-span-2 text-center p-3 bg-purple-900/30 rounded-lg border-2 border-purple-500">

@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Notification, LogType, User, Shop } from '../types';
+import { useTranslation } from '../i18n/useTranslation';
+import { translateEnum, logTypeTranslations } from '../i18n/enumTranslations';
+import { getBilingualText } from '../utils/bilingual';
 
 const LogTypeIcon: React.FC<{ type: LogType | undefined }> = ({ type }) => {
     const baseClasses = "w-8 h-8 p-1.5 rounded-full text-white flex items-center justify-center flex-shrink-0";
@@ -27,12 +30,12 @@ const LogTypeIcon: React.FC<{ type: LogType | undefined }> = ({ type }) => {
     }
 };
 
-const formatRelativeTime = (isoString: string | undefined | null) => {
+const formatRelativeTime = (isoString: string | undefined | null, language: 'ar' | 'en' = 'ar') => {
     try {
         // Handle null, undefined, or empty string
         if (!isoString || typeof isoString !== 'string') {
             console.error('Invalid timestamp:', isoString);
-            return 'تاريخ غير صالح';
+            return language === 'ar' ? 'تاريخ غير صالح' : 'Invalid date';
         }
 
         const date = new Date(isoString);
@@ -40,7 +43,7 @@ const formatRelativeTime = (isoString: string | undefined | null) => {
         // Check if date is valid
         if (isNaN(date.getTime())) {
             console.error('Invalid date string:', isoString);
-            return 'تاريخ غير صالح';
+            return language === 'ar' ? 'تاريخ غير صالح' : 'Invalid date';
         }
 
         const now = new Date();
@@ -52,17 +55,26 @@ const formatRelativeTime = (isoString: string | undefined | null) => {
         // Handle future dates
         if (seconds < 0) {
             console.warn('Future timestamp detected:', isoString);
-            return 'الآن';
+            return language === 'ar' ? 'الآن' : 'Now';
         }
 
-        if (seconds < 5) return 'الآن';
-        if (seconds < 60) return `منذ ${seconds} ثانية`;
-        if (minutes < 60) return `منذ ${minutes} دقيقة`;
-        if (hours < 24) return `منذ ${hours} ساعة`;
-        if (days <= 7) return `منذ ${days} أيام`;
+        if (language === 'ar') {
+            if (seconds < 5) return 'الآن';
+            if (seconds < 60) return `منذ ${seconds} ثانية`;
+            if (minutes < 60) return `منذ ${minutes} دقيقة`;
+            if (hours < 24) return `منذ ${hours} ساعة`;
+            if (days <= 7) return `منذ ${days} أيام`;
+        } else {
+            if (seconds < 5) return 'Now';
+            if (seconds < 60) return `${seconds}s ago`;
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            if (days <= 7) return `${days}d ago`;
+        }
 
-        // Format date for Khartoum timezone (Africa/Khartoum)
-        return new Intl.DateTimeFormat('ar-SD', {
+        // Format date based on language
+        const locale = language === 'ar' ? 'ar-SD' : 'en-US';
+        return new Intl.DateTimeFormat(locale, {
             timeZone: 'Africa/Khartoum',
             year: 'numeric',
             month: 'long',
@@ -72,7 +84,7 @@ const formatRelativeTime = (isoString: string | undefined | null) => {
         }).format(date);
     } catch (error) {
         console.error('Error formatting date:', error, 'Input:', isoString);
-        return 'تاريخ غير صالح';
+        return language === 'ar' ? 'تاريخ غير صالح' : 'Invalid date';
     }
 };
 
@@ -86,11 +98,51 @@ interface NotificationsPageProps {
 }
 
 const NotificationsPage: React.FC<NotificationsPageProps> = ({ notifications, onMarkAllRead, onDeleteNotifications, users, shops, currentUser }) => {
+    const { t, language } = useTranslation();
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isDeleting, setIsDeleting] = useState(false);
+    const [showBothLanguages, setShowBothLanguages] = useState(false);
 
-    const getUserName = (userId: string | undefined) => users.find(u => u.id === userId)?.name || 'غير معروف';
-    const getShopName = (shopId: string | undefined) => shops.find(s => s.id === shopId)?.name || 'غير معروف';
+    const getUserName = (userId: string | undefined) => users.find(u => u.id === userId)?.name || (language === 'ar' ? 'غير معروف' : 'Unknown');
+    const getShopName = (shopId: string | undefined) => {
+        const shop = shops.find(s => s.id === shopId);
+        if (!shop) return language === 'ar' ? 'غير معروف' : 'Unknown';
+        return getBilingualText(shop.name, shop.nameEn, language);
+    };
+
+    // Render notification message with translation
+    const renderMessage = (notification: Notification) => {
+        // If has messageKey, translate it
+        if (notification.messageKey) {
+            return t(notification.messageKey, notification.messageParams);
+        }
+
+        // Otherwise use stored message in current language
+        if (language === 'en' && notification.messageEn) {
+            return notification.messageEn;
+        }
+
+        return notification.messageAr || notification.message;
+    };
+
+    // Render both language versions
+    const renderBothLanguages = (notification: Notification) => {
+        const arabicMessage = notification.messageAr || notification.message;
+        const englishMessage = notification.messageEn || notification.message;
+
+        return (
+            <div className="space-y-2">
+                <div className="text-text-primary">
+                    <span className="text-xs font-semibold text-gray-400 block mb-1">العربية:</span>
+                    <span className="block">{arabicMessage}</span>
+                </div>
+                <div className="text-text-primary border-t border-gray-700 pt-2">
+                    <span className="text-xs font-semibold text-gray-400 block mb-1">English:</span>
+                    <span className="block">{englishMessage}</span>
+                </div>
+            </div>
+        );
+    };
 
     const isAdmin = currentUser.role === 'admin';
 
@@ -125,14 +177,21 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ notifications, on
     const handleDeleteSelected = async () => {
         if (selectedIds.size === 0 || !isAdmin) return;
 
-        if (window.confirm(`هل أنت متأكد من حذف ${selectedIds.size} إشعار(ات)؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+        const confirmMessage = language === 'ar'
+            ? `هل أنت متأكد من حذف ${selectedIds.size} إشعار(ات)؟ لا يمكن التراجع عن هذا الإجراء.`
+            : `Are you sure you want to delete ${selectedIds.size} notification(s)? This action cannot be undone.`;
+
+        if (window.confirm(confirmMessage)) {
             setIsDeleting(true);
             try {
                 await onDeleteNotifications(Array.from(selectedIds));
                 setSelectedIds(new Set()); // Clear selection after successful deletion
             } catch (error) {
                 console.error('Failed to delete notifications:', error);
-                alert('فشل حذف الإشعارات. يرجى المحاولة مرة أخرى.');
+                const errorMessage = language === 'ar'
+                    ? 'فشل حذف الإشعارات. يرجى المحاولة مرة أخرى.'
+                    : 'Failed to delete notifications. Please try again.';
+                alert(errorMessage);
             } finally {
                 setIsDeleting(false);
             }
@@ -142,14 +201,26 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ notifications, on
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center gap-4 flex-wrap">
-                <h1 className="text-3xl font-bold">إشعارات النظام</h1>
+                <h1 className="text-3xl font-bold">{t('notifications.title')}</h1>
                 <div className="flex gap-2 flex-wrap">
+                    {/* Dual Language Toggle */}
+                    {isAdmin && notifications.length > 0 && (
+                        <button
+                            onClick={() => setShowBothLanguages(!showBothLanguages)}
+                            className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                            </svg>
+                            {showBothLanguages ? language === 'ar' ? 'إخفاء الترجمة' : 'Hide Translation' : language === 'ar' ? 'عرض بلغتين' : 'Show Both Languages'}
+                        </button>
+                    )}
                     {notifications.some(n => !n.isRead) && (
                         <button
                             onClick={onMarkAllRead}
                             className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg transition duration-300"
                         >
-                            تحديد الكل كمقروء
+                            {t('notifications.actions.markAllRead')}
                         </button>
                     )}
                     {isAdmin && selectedIds.size > 0 && (
@@ -158,7 +229,7 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ notifications, on
                             disabled={isDeleting}
                             className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isDeleting ? 'جاري الحذف...' : `حذف المحدد (${selectedIds.size})`}
+                            {isDeleting ? t('common.ui.loading') : `${t('notifications.actions.deleteSelected')} (${selectedIds.size})`}
                         </button>
                     )}
                 </div>
@@ -175,7 +246,7 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ notifications, on
                                 className="w-4 h-4 rounded border-gray-600 bg-background text-accent focus:ring-2 focus:ring-accent cursor-pointer"
                             />
                             <span className="text-text-primary font-medium">
-                                {allSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                                {allSelected ? t('common.actions.deselectAll') : t('common.actions.selectAll')}
                             </span>
                         </label>
                     </div>
@@ -196,16 +267,20 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ notifications, on
                                     />
                                 </div>
                             )}
-                            {!notif.isRead && <div className="w-2.5 h-2.5 bg-accent rounded-full mt-3 flex-shrink-0" title="غير مقروء"></div>}
+                            {!notif.isRead && <div className="w-2.5 h-2.5 bg-accent rounded-full mt-3 flex-shrink-0" title={t('notifications.filters.unread')}></div>}
                             <div className={`flex-shrink-0 mt-1 ${notif.isRead && !isAdmin ? 'ml-5' : ''}`}>
                                 <LogTypeIcon type={notif.logType} />
                             </div>
                             <div className="flex-grow">
-                                <p className="text-text-primary">{notif.message}</p>
+                                {showBothLanguages ? (
+                                    renderBothLanguages(notif)
+                                ) : (
+                                    <p className="text-text-primary">{renderMessage(notif)}</p>
+                                )}
                                 <div className="text-xs text-text-secondary mt-1 flex items-center gap-4">
-                                    {notif.originatingUserId && <span>المستخدم: <strong className="font-medium text-gray-300">{getUserName(notif.originatingUserId)}</strong></span>}
-                                    {notif.shopId && <span>المتجر: <strong className="font-medium text-gray-300">{getShopName(notif.shopId)}</strong></span>}
-                                    <span>{formatRelativeTime(notif.timestamp)}</span>
+                                    {notif.originatingUserId && <span>{t('common.ui.user')}: <strong className="font-medium text-gray-300">{getUserName(notif.originatingUserId)}</strong></span>}
+                                    {notif.shopId && <span>{t('logs.list.columns.shop')}: <strong className="font-medium text-gray-300">{getShopName(notif.shopId)}</strong></span>}
+                                    <span>{formatRelativeTime(notif.timestamp, language)}</span>
                                 </div>
                             </div>
                         </div>
@@ -213,8 +288,8 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ notifications, on
                     {notifications.length === 0 && (
                         <div className="text-center p-12 text-text-secondary">
                             <svg className="w-16 h-16 mx-auto text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                            <h3 className="mt-2 text-lg font-medium">لا توجد إشعارات</h3>
-                            <p className="mt-1 text-sm">ستظهر الإشعارات الجديدة الخاصة بنشاط المستخدم هنا.</p>
+                            <h3 className="mt-2 text-lg font-medium">{t('notifications.list.empty')}</h3>
+                            <p className="mt-1 text-sm">{t('notifications.subtitle')}</p>
                         </div>
                     )}
                 </div>

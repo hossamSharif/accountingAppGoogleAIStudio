@@ -1,0 +1,33 @@
+{
+  "title": "لوحة التحكم",
+  "dateNavigator": {
+    "today": "اليوم",
+    "selectDate": "اختر التاريخ"
+  },
+  "stats": {
+    "sales": "المبيعات",
+    "purchases": "المشتريات",
+    "expenses": "المصروفات",
+    "profit": "الربح",
+    "loss": "خسارة",
+    "cashBalance": "رصيد الصندوق",
+    "bankBalance": "رصيد البنك",
+    "daily": "يومي",
+    "total": "إجمالي"
+  },
+  "actions": {
+    "addTransaction": "إضافة معاملة",
+    "addAccount": "إضافة حساب",
+    "viewTransactions": "عرض جميع المعاملات",
+    "viewAccounts": "عرض جميع الحسابات"
+  },
+  "recentTransactions": {
+    "title": "المعاملات الأخيرة",
+    "noTransactions": "لا توجد معاملات لهذا اليوم",
+    "viewAll": "عرض الكل"
+  },
+  "warnings": {
+    "noFinancialYear": "لا توجد سنة مالية مفتوحة",
+    "createFinancialYear": "يرجى إنشاء سنة مالية للبدء"
+  }
+}

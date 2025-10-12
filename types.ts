@@ -22,13 +22,16 @@ export interface User {
     isActive: boolean;
     fcmToken?: string;
     fcmTokenUpdatedAt?: string;
+    emailNotifications?: boolean; // Enable/disable email notifications (default: true)
 }
 
 export interface Shop {
     id: string;
-    name: string;
+    name: string;              // Arabic (primary)
+    nameEn?: string;           // English (optional)
     shopCode: string; // Added shop code field for account/financial year naming
-    description: string;
+    description: string;        // Arabic (primary)
+    descriptionEn?: string;     // English (optional)
     address?: string;
     contactPhone?: string;
     contactEmail?: string;
@@ -69,7 +72,8 @@ export interface Account {
     id: string;
     shopId: string;
     accountCode: string;
-    name: string;
+    name: string;        // Arabic (primary)
+    nameEn?: string;     // English (optional)
     classification: AccountClassification;
     nature: AccountNature;
     type: AccountType;
@@ -106,7 +110,8 @@ export interface Transaction {
 export interface FinancialYear {
     id: string;
     shopId: string;
-    name: string;
+    name: string;              // Arabic (primary)
+    nameEn?: string;           // English (optional)
     startDate: string; // ISO string
     endDate: string; // ISO string
     status: 'open' | 'closed';
@@ -210,7 +215,11 @@ export interface Log {
     shopId?: string;
     type: LogType;
     timestamp: string; // ISO string
-    message: string;
+    message: string;           // Deprecated - use messageKey
+    messageKey?: string;       // Translation key
+    messageParams?: Record<string, any>; // Parameters for translation
+    messageAr?: string;        // Fallback Arabic
+    messageEn?: string;        // Fallback English
 }
 
 export interface Notification {
@@ -219,7 +228,11 @@ export interface Notification {
     originatingUserId?: string; // The user who caused the notification
     shopId?: string;
     logType?: LogType;
-    message: string;
+    message: string;           // Deprecated - use messageKey
+    messageKey?: string;       // Translation key
+    messageParams?: Record<string, any>; // Parameters for translation
+    messageAr?: string;        // Fallback Arabic
+    messageEn?: string;        // Fallback English
     isRead: boolean;
     timestamp: string; // ISO string
 }
@@ -1119,4 +1132,45 @@ export enum Phase3LogType {
     BACKUP_RESTORED = 'BACKUP_RESTORED',
     PERFORMANCE_ALERT = 'PERFORMANCE_ALERT',
     SUSPICIOUS_ACTIVITY = 'SUSPICIOUS_ACTIVITY'
+}
+
+// ========== OFFLINE & SYNC INTERFACES ==========
+
+export interface PendingTransaction {
+  id: string;
+  transaction: Omit<Transaction, 'id'>;
+  timestamp: number;
+  userId: string;
+  shopId: string;
+  retryCount: number;
+  status: 'pending' | 'syncing' | 'failed';
+  errorMessage?: string;
+}
+
+export interface CachedReport {
+  id: string;
+  reportType: string;
+  data: any;
+  generatedAt: number;
+  shopId: string;
+  expiresAt: number;
+}
+
+export interface ConnectionStatus {
+  isOnline: boolean;
+  isFirestoreConnected: boolean;
+  hasInternetAccess: boolean;
+  lastChecked: Date;
+}
+
+export interface SyncResult {
+  success: number;
+  failed: number;
+  errors: Array<{ id: string; error: string }>;
+}
+
+export interface OfflineStats {
+  pendingCount: number;
+  cachedReportsCount: number;
+  totalSize: string;
 }

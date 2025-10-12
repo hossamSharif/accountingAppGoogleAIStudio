@@ -1,0 +1,99 @@
+{
+  "pdf": {
+    "title": "تقرير",
+    "generatedOn": "تاريخ الإنشاء",
+    "page": "صفحة",
+    "of": "من",
+    "total": "الإجمالي",
+    "subtotal": "المجموع الفرعي",
+    "grandTotal": "الإجمالي الكلي",
+    "summary": "ملخص",
+    "date": "التاريخ",
+    "reportTitle": "عنوان التقرير",
+    "preparedBy": "أعد بواسطة",
+    "printedOn": "طُبع في"
+  },
+  "excel": {
+    "sheet1": "البيانات",
+    "sheet2": "الملخص",
+    "summary": "ملخص",
+    "data": "البيانات",
+    "analysis": "التحليل",
+    "charts": "الرسوم البيانية"
+  },
+  "csv": {
+    "exported": "تم التصدير بنجاح",
+    "dataExported": "تم تصدير البيانات"
+  },
+  "options": {
+    "includeHeader": "تضمين الرأس",
+    "includeFooter": "تضمين التذييل",
+    "landscape": "أفقي",
+    "portrait": "عمودي",
+    "pageSize": "حجم الصفحة",
+    "orientation": "الاتجاه",
+    "language": "اللغة",
+    "selectLanguage": "اختر اللغة",
+    "arabic": "العربية",
+    "english": "الإنجليزية",
+    "dateFormat": "تنسيق التاريخ",
+    "numberFormat": "تنسيق الأرقام",
+    "currency": "العملة",
+    "encoding": "الترميز"
+  },
+  "formats": {
+    "pdf": "PDF",
+    "excel": "Excel",
+    "csv": "CSV",
+    "json": "JSON"
+  },
+  "actions": {
+    "export": "تصدير",
+    "download": "تحميل",
+    "print": "طباعة",
+    "preview": "معاينة",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "selectFormat": "اختر الصيغة"
+  },
+  "messages": {
+    "exporting": "جاري التصدير...",
+    "exportSuccess": "تم التصدير بنجاح",
+    "exportFailed": "فشل التصدير",
+    "downloadStarted": "بدأ التحميل",
+    "noDataToExport": "لا توجد بيانات للتصدير",
+    "preparing": "جاري التحضير...",
+    "generating": "جاري الإنشاء..."
+  },
+  "errors": {
+    "pdfFailed": "فشل في تصدير PDF",
+    "excelFailed": "فشل في تصدير Excel",
+    "csvFailed": "فشل في تصدير CSV",
+    "jsonFailed": "فشل في تصدير JSON",
+    "noData": "لا توجد بيانات للتصدير",
+    "invalidFormat": "صيغة غير صالحة",
+    "exportError": "حدث خطأ أثناء التصدير"
+  },
+  "templates": {
+    "basic": "قالب أساسي",
+    "detailed": "قالب تفصيلي",
+    "summary": "قالب ملخص",
+    "executive": "قالب تنفيذي",
+    "custom": "قالب مخصص"
+  },
+  "headers": {
+    "date": "التاريخ",
+    "description": "الوصف",
+    "amount": "المبلغ",
+    "type": "النوع",
+    "account": "الحساب",
+    "accountCode": "رمز الحساب",
+    "accountName": "اسم الحساب",
+    "debit": "مدين",
+    "credit": "دائن",
+    "balance": "الرصيد",
+    "status": "الحالة",
+    "reference": "المرجع",
+    "notes": "ملاحظات"
+  }
+}

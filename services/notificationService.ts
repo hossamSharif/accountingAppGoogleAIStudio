@@ -14,12 +14,15 @@ import {
 } from 'firebase/firestore';
 import { BaseService } from './baseService';
 import { User, LogType, Notification } from '../types';
+import { translate } from '../utils/translate';
 
 export interface CreateNotificationData {
     userId: string;
     originatingUserId: string;
     shopId?: string;
-    message: string;
+    message?: string;  // Deprecated - kept for backwards compatibility
+    messageKey?: string;  // NEW: Translation key
+    messageParams?: Record<string, any>;  // NEW: Parameters for translation
     logType: LogType;
 }
 
@@ -35,13 +38,33 @@ export class NotificationService extends BaseService {
     // Create notification
     static async createNotification(notificationData: CreateNotificationData): Promise<void> {
         try {
-            this.validateRequired(notificationData, ['userId', 'originatingUserId', 'message', 'logType']);
+            this.validateRequired(notificationData, ['userId', 'originatingUserId', 'logType']);
+
+            // Generate bilingual messages
+            let messageAr = '';
+            let messageEn = '';
+
+            if (notificationData.messageKey) {
+                // Use translation keys
+                messageAr = translate(notificationData.messageKey, 'ar', notificationData.messageParams);
+                messageEn = translate(notificationData.messageKey, 'en', notificationData.messageParams);
+            } else if (notificationData.message) {
+                // Fallback to old message field
+                messageAr = notificationData.message;
+                messageEn = notificationData.message;
+            } else {
+                throw new Error('Either messageKey or message is required');
+            }
 
             const newNotification: Omit<Notification, 'id'> = {
                 userId: notificationData.userId,
                 originatingUserId: notificationData.originatingUserId,
                 shopId: notificationData.shopId,
-                message: this.sanitizeString(notificationData.message),
+                message: messageAr,  // Keep for backwards compatibility
+                messageKey: notificationData.messageKey,
+                messageParams: notificationData.messageParams,
+                messageAr: this.sanitizeString(messageAr),
+                messageEn: this.sanitizeString(messageEn),
                 logType: notificationData.logType,
                 isRead: false,
                 timestamp: Timestamp.now().toDate().toISOString()
@@ -63,14 +86,32 @@ export class NotificationService extends BaseService {
             const timestamp = Timestamp.now().toDate().toISOString();
 
             notifications.forEach(notificationData => {
-                this.validateRequired(notificationData, ['userId', 'originatingUserId', 'message', 'logType']);
+                this.validateRequired(notificationData, ['userId', 'originatingUserId', 'logType']);
+
+                // Generate bilingual messages
+                let messageAr = '';
+                let messageEn = '';
+
+                if (notificationData.messageKey) {
+                    messageAr = translate(notificationData.messageKey, 'ar', notificationData.messageParams);
+                    messageEn = translate(notificationData.messageKey, 'en', notificationData.messageParams);
+                } else if (notificationData.message) {
+                    messageAr = notificationData.message;
+                    messageEn = notificationData.message;
+                } else {
+                    throw new Error('Either messageKey or message is required');
+                }
 
                 const notificationRef = doc(collection(this.db, 'notifications'));
                 const newNotification: Omit<Notification, 'id'> = {
                     userId: notificationData.userId,
                     originatingUserId: notificationData.originatingUserId,
                     shopId: notificationData.shopId,
-                    message: this.sanitizeString(notificationData.message),
+                    message: messageAr,  // Keep for backwards compatibility
+                    messageKey: notificationData.messageKey,
+                    messageParams: notificationData.messageParams,
+                    messageAr: this.sanitizeString(messageAr),
+                    messageEn: this.sanitizeString(messageEn),
                     logType: notificationData.logType,
                     isRead: false,
                     timestamp
@@ -278,17 +319,24 @@ export class NotificationService extends BaseService {
     // Notify specific user
     static async notifyUser(
         userId: string,
-        message: string,
+        messageKeyOrText: string,
         logType: LogType,
         originatingUserId: string = 'system',
-        shopId?: string
+        shopId?: string,
+        messageParams?: Record<string, any>
     ): Promise<void> {
         try {
+            // Check if it's a translation key (contains dot notation) or plain text
+            const isTranslationKey = messageKeyOrText.includes('.');
+
             await this.createNotification({
                 userId,
                 originatingUserId,
                 shopId,
-                message: this.sanitizeString(message),
+                ...(isTranslationKey
+                    ? { messageKey: messageKeyOrText, messageParams }
+                    : { message: this.sanitizeString(messageKeyOrText) }
+                ),
                 logType
             });
 

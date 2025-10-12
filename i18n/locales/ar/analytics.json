@@ -1,0 +1,85 @@
+{
+  "title": "التحليلات",
+  "subtitle": "تحليل الأداء المالي والاتجاهات",
+  "periods": {
+    "today": "اليوم",
+    "week": "هذا الأسبوع",
+    "month": "هذا الشهر",
+    "all": "الكل",
+    "custom": "مخصص",
+    "period": "الفترة",
+    "financialYear": "السنة المالية"
+  },
+  "filters": {
+    "shop": "المتجر",
+    "allShops": "جميع المتاجر",
+    "period": "الفترة",
+    "metric": "المقياس",
+    "selectFinancialYear": "اختر السنة المالية",
+    "usePeriodFilters": "استخدام فلاتر الفترة",
+    "customRange": "نطاق تاريخ مخصص",
+    "from": "من",
+    "to": "إلى"
+  },
+  "charts": {
+    "revenue": "الإيرادات",
+    "expenses": "المصروفات",
+    "profit": "الربح",
+    "trend": "الاتجاه",
+    "breakdown": "التوزيع",
+    "comparison": "المقارنة",
+    "dailyProfit": "اتجاه الربح اليومي",
+    "expenseBreakdown": "توزيع المصروفات حسب النوع",
+    "revenueVsExpenses": "الإيرادات مقابل المصروفات",
+    "topAccounts": "أعلى الحسابات حسب النشاط",
+    "shopComparison": "مقارنة المتاجر",
+    "monthlyTrend": "الاتجاه الشهري"
+  },
+  "metrics": {
+    "totalRevenue": "إجمالي الإيرادات",
+    "totalExpenses": "إجمالي المصروفات",
+    "totalSales": "إجمالي المبيعات",
+    "totalPurchases": "إجمالي المشتريات",
+    "netProfit": "صافي الربح",
+    "profitMargin": "هامش الربح",
+    "growth": "النمو",
+    "avgTransaction": "متوسط المعاملة",
+    "cashBalance": "إجمالي الصندوق",
+    "bankBalance": "إجمالي البنك",
+    "totalDebtors": "إجمالي المدينين",
+    "totalCreditors": "إجمالي الدائنين",
+    "numberOfTransactions": "عدد المعاملات"
+  },
+  "insights": {
+    "title": "الرؤى",
+    "positive": "إيجابي",
+    "warning": "تحذير",
+    "critical": "حرج",
+    "noInsights": "لا توجد رؤى متاحة",
+    "profitableMonth": "شهر مربح بصافي ربح {profit}",
+    "highExpenses": "تم اكتشاف مصروفات عالية: {amount}",
+    "lowRevenue": "الإيرادات أقل من المتوسط: {amount}",
+    "cashFlowPositive": "اتجاه إيجابي للتدفق النقدي"
+  },
+  "labels": {
+    "sales": "المبيعات",
+    "purchases": "المشتريات",
+    "expenses": "المصروفات",
+    "transfers": "التحويلات",
+    "date": "التاريخ",
+    "amount": "المبلغ",
+    "account": "الحساب",
+    "noData": "لا توجد بيانات لهذه الفترة",
+    "loading": "جاري تحميل التحليلات..."
+  },
+  "summary": {
+    "title": "الملخص",
+    "period": "ملخص الفترة",
+    "overall": "الأداء الإجمالي"
+  },
+  "export": {
+    "pdf": "تصدير PDF",
+    "excel": "تصدير Excel",
+    "print": "طباعة"
+  }
+}

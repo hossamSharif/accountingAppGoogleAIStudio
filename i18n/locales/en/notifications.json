@@ -1,0 +1,60 @@
+{
+  "title": "Notifications",
+  "subtitle": "System notifications and updates",
+  "filters": {
+    "all": "All",
+    "unread": "Unread",
+    "read": "Read",
+    "type": "Type"
+  },
+  "actions": {
+    "markAllRead": "Mark All as Read",
+    "deleteAll": "Delete All",
+    "deleteSelected": "Delete Selected",
+    "refresh": "Refresh"
+  },
+  "list": {
+    "empty": "No notifications",
+    "noUnread": "No unread notifications",
+    "showing": "Showing {count} notifications"
+  },
+  "item": {
+    "delete": "Delete",
+    "markRead": "Mark as Read",
+    "markUnread": "Mark as Unread"
+  },
+  "types": {
+    "system": "System",
+    "transaction": "Transaction",
+    "user": "User",
+    "shop": "Shop",
+    "account": "Account"
+  },
+  "messages": {
+    "deleteConfirm": "Do you want to delete this notification?",
+    "deleteAllConfirm": "Do you want to delete all notifications?",
+    "markedRead": "Notifications marked as read",
+    "deleted": "Notifications deleted"
+  },
+  "events": {
+    "transactionAdded": "{userName} added a new transaction in {shopName}: ({type}) - {amount}",
+    "transactionUpdated": "{userName} updated a transaction in {shopName}",
+    "transactionDeleted": "{userName} deleted a transaction in {shopName}",
+    "accountCreated": "{userName} created a new account: {accountName}",
+    "accountUpdated": "{userName} updated account: {accountName}",
+    "accountDeleted": "{userName} deleted account: {accountName}",
+    "shopCreated": "New shop created: {shopName}",
+    "shopUpdated": "Shop updated: {shopName}",
+    "shopDeleted": "Shop deleted: {shopName}",
+    "userCreated": "New user created: {userName}",
+    "userUpdated": "User updated: {userName}",
+    "userDeleted": "User deleted: {userName}",
+    "financialYearCreated": "New financial year created: {yearName}",
+    "financialYearClosed": "Financial year closed: {yearName}",
+    "userLogin": "{userName} logged in",
+    "userLogout": "{userName} logged out",
+    "systemUpdate": "System update: {message}",
+    "systemError": "System error: {message}",
+    "systemWarning": "Warning: {message}"
+  }
+}

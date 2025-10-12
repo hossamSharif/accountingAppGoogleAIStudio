@@ -1,0 +1,88 @@
+{
+  "title": "إدارة المتاجر",
+  "subtitle": "إنشاء وإدارة المتاجر والفروع",
+  "list": {
+    "columns": {
+      "shopCode": "رمز المتجر",
+      "name": "اسم المتجر",
+      "description": "الوصف",
+      "status": "الحالة",
+      "users": "المستخدمين",
+      "accounts": "الحسابات",
+      "actions": "الإجراءات"
+    },
+    "empty": "لا توجد متاجر"
+  },
+  "status": {
+    "active": "نشط",
+    "inactive": "غير نشط"
+  },
+  "actions": {
+    "create": "إنشاء متجر",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "activate": "تفعيل",
+    "deactivate": "إلغاء التفعيل",
+    "viewAccounts": "عرض الحسابات",
+    "viewStats": "عرض الإحصائيات"
+  },
+  "form": {
+    "title": {
+      "create": "إنشاء متجر جديد",
+      "edit": "تعديل متجر"
+    },
+    "steps": {
+      "basic": "المعلومات الأساسية",
+      "details": "التفاصيل",
+      "preview": "المعاينة"
+    },
+    "name": "المتجر",
+    "selectShop": "اختر المتجر",
+    "shopCode": "رمز المتجر",
+    "shopCodeHint": "2-10 أحرف/أرقام إنجليزية فقط",
+    "nameArabic": "اسم المتجر (عربي)",
+    "nameEnglish": "اسم المتجر (إنجليزي)",
+    "descriptionArabic": "الوصف (عربي)",
+    "descriptionEnglish": "الوصف (إنجليزي)",
+    "address": "العنوان",
+    "contactPhone": "رقم الهاتف",
+    "contactEmail": "البريد الإلكتروني",
+    "businessType": "نوع النشاط",
+    "customBusinessType": "نوع نشاط آخر",
+    "openingStockValue": "قيمة المخزون الافتتاحي",
+    "accountsPreview": "الحسابات التي سيتم إنشاؤها",
+    "mainAccounts": "الحسابات الرئيسية",
+    "subAccounts": "الحسابات الفرعية"
+  },
+  "messages": {
+    "created": "تم إنشاء المتجر بنجاح",
+    "updated": "تم تحديث المتجر بنجاح",
+    "deleted": "تم حذف المتجر بنجاح",
+    "activated": "تم تفعيل المتجر بنجاح",
+    "deactivated": "تم إلغاء تفعيل المتجر بنجاح",
+    "deleteConfirm": "هل تريد حذف هذا المتجر؟ سيتم حذف جميع البيانات المرتبطة به",
+    "deleteWarning": "تحذير: سيتم حذف {accountsCount} حساب و {transactionsCount} معاملة",
+    "cannotDelete": "لا يمكن حذف متجر يحتوي على بيانات",
+    "deactivateConfirm": "هل تريد إلغاء تفعيل هذا المتجر؟",
+    "activateConfirm": "هل تريد تفعيل هذا المتجر؟",
+    "cannotDeactivate": "لا يمكن إلغاء تفعيل متجر يحتوي على مستخدمين نشطين"
+  },
+  "validation": {
+    "selectShop": "الرجاء اختيار متجر",
+    "codeRequired": "رمز المتجر مطلوب",
+    "codeInvalid": "رمز المتجر يجب أن يكون 2-10 أحرف/أرقام إنجليزية فقط",
+    "nameRequired": "اسم المتجر (عربي) مطلوب",
+    "nameTooShort": "اسم المتجر يجب أن يكون أكثر من حرفين",
+    "descriptionRequired": "الوصف (عربي) مطلوب",
+    "emailInvalid": "البريد الإلكتروني غير صالح",
+    "phoneInvalid": "رقم الهاتف غير صالح",
+    "openingStockNegative": "قيمة المخزون لا يمكن أن تكون سالبة",
+    "nameExists": "يوجد متجر بنفس هذا الاسم، يرجى اختيار اسم آخر"
+  },
+  "businessTypes": {
+    "rickshawSpares": "اسبيرات ركشة",
+    "agriculturalEquipment": "الات زراعية",
+    "buildingMaterials": "مواد بناء",
+    "other": "اخري"
+  }
+}

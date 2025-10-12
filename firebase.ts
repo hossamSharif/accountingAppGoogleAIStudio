@@ -1,6 +1,11 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import {
+  getFirestore,
+  connectFirestoreEmulator,
+  enableIndexedDbPersistence,
+  CACHE_SIZE_UNLIMITED
+} from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getMessaging, isSupported as isMessagingSupported } from 'firebase/messaging';
 
@@ -20,6 +25,30 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app);
+
+// Enable Firestore Offline Persistence
+const enableOfflineMode = async () => {
+  try {
+    await enableIndexedDbPersistence(db, {
+      synchronizeTabs: true, // Enable across multiple tabs
+      cacheSizeBytes: CACHE_SIZE_UNLIMITED // Allow unlimited cache
+    });
+    console.log('✅ Firestore offline persistence enabled');
+  } catch (err: any) {
+    if (err.code === 'failed-precondition') {
+      console.warn('⚠️ Multiple tabs open, persistence can only be enabled in one tab at a time.');
+    } else if (err.code === 'unimplemented') {
+      console.warn('⚠️ The current browser doesn\'t support offline persistence');
+    } else {
+      console.error('❌ Error enabling offline persistence:', err);
+    }
+  }
+};
+
+// Enable offline mode immediately
+if (typeof window !== 'undefined') {
+  enableOfflineMode();
+}
 
 // Initialize Firebase Cloud Messaging (only if supported)
 let messaging: any = null;

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { Shop, User, Page, Notification, LogType } from '../types';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -21,6 +22,7 @@ const Layout: React.FC<LayoutProps> = ({
     children, activeShop, currentUser, page, setPage, onLogout, shops, onSelectShop,
     notifications, onAddLog, onMarkNotificationsRead
 }) => {
+    const { dir } = useTranslation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
@@ -48,7 +50,7 @@ const Layout: React.FC<LayoutProps> = ({
     };
 
     return (
-        <div className="flex h-screen bg-background">
+        <div className="flex h-screen bg-background" dir={dir}>
             {/* Overlay for mobile */}
             {isSidebarOpen && !isDesktop && (
                 <div

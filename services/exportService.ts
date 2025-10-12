@@ -12,6 +12,9 @@ import { BaseService } from './baseService';
 import { ReportService } from './reportService';
 import { collection, doc, setDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { translate, getCurrentLanguage } from '../utils/translate';
+import type { Language } from '../i18n/i18nContext';
+import { OfflineManager } from './offlineManager';
 
 // Note: In a real implementation, you would import these libraries:
 // import * as ExcelJS from 'exceljs';
@@ -23,13 +26,14 @@ export class ExportService extends BaseService {
   // Export data to Excel with advanced formatting
   static async exportToExcel(
     data: any[],
-    config: ExportConfiguration
+    config: ExportConfiguration,
+    language: Language = 'ar'
   ): Promise<Blob> {
     try {
       // This is a placeholder implementation
       // In real implementation, you would use ExcelJS library
 
-      const csvContent = this.convertToCSV(data, config);
+      const csvContent = this.convertToCSV(data, config, language);
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 
       // Mock Excel export for demonstration
@@ -38,20 +42,22 @@ export class ExportService extends BaseService {
       return blob;
     } catch (error) {
       console.error('Error exporting to Excel:', error);
-      throw new Error('فشل في تصدير البيانات إلى Excel');
+      const errorMsg = translate('exports.errors.excelFailed', language);
+      throw new Error(errorMsg);
     }
   }
 
   // Export data to PDF with custom layouts
   static async exportToPDF(
     data: any[],
-    config: PDFExportConfiguration
+    config: PDFExportConfiguration,
+    language: Language = 'ar'
   ): Promise<Blob> {
     try {
       // This is a placeholder implementation
       // In real implementation, you would use jsPDF library
 
-      const pdfContent = this.generatePDFContent(data, config);
+      const pdfContent = this.generatePDFContent(data, config, language);
       const blob = new Blob([pdfContent], { type: 'application/pdf' });
 
       console.log('Exporting to PDF with config:', config);
@@ -59,30 +65,34 @@ export class ExportService extends BaseService {
       return blob;
     } catch (error) {
       console.error('Error exporting to PDF:', error);
-      throw new Error('فشل في تصدير البيانات إلى PDF');
+      const errorMsg = translate('exports.errors.pdfFailed', language);
+      throw new Error(errorMsg);
     }
   }
 
   // Export to CSV format
   static async exportToCSV(
     data: any[],
-    config: ExportConfiguration
+    config: ExportConfiguration,
+    language: Language = 'ar'
   ): Promise<Blob> {
     try {
-      const csvContent = this.convertToCSV(data, config);
+      const csvContent = this.convertToCSV(data, config, language);
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 
       return blob;
     } catch (error) {
       console.error('Error exporting to CSV:', error);
-      throw new Error('فشل في تصدير البيانات إلى CSV');
+      const errorMsg = translate('exports.errors.csvFailed', language);
+      throw new Error(errorMsg);
     }
   }
 
   // Export to JSON format
   static async exportToJSON(
     data: any[],
-    config: ExportConfiguration
+    config: ExportConfiguration,
+    language: Language = 'ar'
   ): Promise<Blob> {
     try {
       const jsonContent = JSON.stringify(data, null, 2);
@@ -91,7 +101,8 @@ export class ExportService extends BaseService {
       return blob;
     } catch (error) {
       console.error('Error exporting to JSON:', error);
-      throw new Error('فشل في تصدير البيانات إلى JSON');
+      const errorMsg = translate('exports.errors.jsonFailed', language);
+      throw new Error(errorMsg);
     }
   }
 
@@ -174,7 +185,8 @@ export class ExportService extends BaseService {
   // Batch export multiple reports
   static async batchExport(
     reports: BatchExportItem[],
-    progressCallback?: (progress: number, current: string) => void
+    progressCallback?: (progress: number, current: string) => void,
+    language: Language = 'ar'
   ): Promise<BatchExportResult> {
     try {
       const results: BatchExportResult = {
@@ -193,7 +205,7 @@ export class ExportService extends BaseService {
           }
 
           const data = await this.generateReportData(item.reportConfig);
-          const exported = await this.exportToFormat(data, item.exportConfig);
+          const exported = await this.exportToFormat(data, item.exportConfig, language);
 
           results.successful.push({
             reportName: item.reportConfig.name,
@@ -202,21 +214,24 @@ export class ExportService extends BaseService {
             size: exported.size
           });
         } catch (error) {
+          const unknownErrorMsg = translate('exports.errors.exportError', language);
           results.failed.push({
             reportName: item.reportConfig.name,
-            error: error instanceof Error ? error.message : 'خطأ غير معروف'
+            error: error instanceof Error ? error.message : unknownErrorMsg
           });
         }
       }
 
       if (progressCallback) {
-        progressCallback(100, 'اكتمل');
+        const completedMsg = translate('exports.messages.exportSuccess', language);
+        progressCallback(100, completedMsg);
       }
 
       return results;
     } catch (error) {
       console.error('Error in batch export:', error);
-      throw new Error('فشل في التصدير المجمع');
+      const batchErrorMsg = language === 'ar' ? 'فشل في التصدير المجمع' : 'Batch export failed';
+      throw new Error(batchErrorMsg);
     }
   }
 
@@ -235,28 +250,47 @@ export class ExportService extends BaseService {
   // Export data to specified format
   private static async exportToFormat(
     data: any[],
-    config: ExportConfiguration
+    config: ExportConfiguration,
+    language: Language = 'ar'
   ): Promise<Blob> {
     switch (config.format) {
       case 'EXCEL':
-        return this.exportToExcel(data, config);
+        return this.exportToExcel(data, config, language);
       case 'PDF':
-        return this.exportToPDF(data, config as PDFExportConfiguration);
+        return this.exportToPDF(data, config as PDFExportConfiguration, language);
       case 'CSV':
-        return this.exportToCSV(data, config);
+        return this.exportToCSV(data, config, language);
       case 'JSON':
-        return this.exportToJSON(data, config);
+        return this.exportToJSON(data, config, language);
       default:
-        throw new Error(`تنسيق غير مدعوم: ${config.format}`);
+        const errorMsg = translate('exports.errors.invalidFormat', language);
+        throw new Error(`${errorMsg}: ${config.format}`);
     }
   }
 
   // Helper method to convert data to CSV
-  private static convertToCSV(data: any[], config: ExportConfiguration): string {
+  private static convertToCSV(data: any[], config: ExportConfiguration, language: Language = 'ar'): string {
     if (data.length === 0) return '';
 
-    const headers = Object.keys(data[0]);
-    const csvHeaders = headers.join(',');
+    // Translate headers if column configuration exists
+    let headers = Object.keys(data[0]);
+    let csvHeaders: string;
+
+    if (config.columns && config.columns.length > 0) {
+      // Use translated headers from config
+      csvHeaders = config.columns.map(col => {
+        if (col.headerKey) {
+          return translate(col.headerKey, language);
+        }
+        return language === 'ar' ? (col.headerAr || col.header) : (col.headerEn || col.header);
+      }).join(',');
+
+      // Use column keys if specified
+      headers = config.columns.map(col => col.key || col.header);
+    } else {
+      // Default headers
+      csvHeaders = headers.map(h => translate(`exports.headers.${h}`, language, {}, h)).join(',');
+    }
 
     const csvRows = data.map(row =>
       headers.map(header => {
@@ -273,20 +307,26 @@ export class ExportService extends BaseService {
   }
 
   // Helper method to generate PDF content (placeholder)
-  private static generatePDFContent(data: any[], config: PDFExportConfiguration): string {
+  private static generatePDFContent(data: any[], config: PDFExportConfiguration, language: Language = 'ar'): string {
     // This is a placeholder - in real implementation would use jsPDF
+    const locale = language === 'ar' ? 'ar-SA' : 'en-US';
+    const titleLabel = translate('exports.pdf.title', language);
+    const generatedOnLabel = translate('exports.pdf.generatedOn', language);
+    const recordsLabel = language === 'ar' ? 'سجلات البيانات' : 'Data Records';
+    const moreLabel = language === 'ar' ? 'و {count} سجل آخر' : 'and {count} more records';
+
     const content = `PDF Report
 
-Generated on: ${new Date().toLocaleDateString('ar-SA')}
-Title: ${config.title || 'تقرير'}
+${generatedOnLabel}: ${new Date().toLocaleDateString(locale)}
+${titleLabel}: ${config.title || titleLabel}
 
-Data Records: ${data.length}
+${recordsLabel}: ${data.length}
 
 ${data.slice(0, 10).map((row, index) =>
-  `Record ${index + 1}: ${JSON.stringify(row, null, 2)}`
+  `${language === 'ar' ? 'سجل' : 'Record'} ${index + 1}: ${JSON.stringify(row, null, 2)}`
 ).join('\n\n')}
 
-${data.length > 10 ? `... and ${data.length - 10} more records` : ''}
+${data.length > 10 ? `... ${moreLabel.replace('{count}', (data.length - 10).toString())}` : ''}
 `;
 
     return content;
@@ -453,6 +493,176 @@ ${data.length > 10 ? `... and ${data.length - 10} more records` : ''}
     } catch (error) {
       console.error('Error fetching export history:', error);
       throw new Error('فشل في جلب تاريخ التصدير');
+    }
+  }
+
+  // ============================================
+  // OFFLINE EXPORT METHODS
+  // ============================================
+
+  /**
+   * Cache recent transactions and reports for offline export
+   * Should be called periodically when online
+   */
+  static async cacheRecentTransactions(
+    shopId: string,
+    userId: string,
+    daysBack: number = 30
+  ): Promise<void> {
+    try {
+      console.log('🔄 Caching recent transactions for offline export...');
+
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+
+      // Fetch recent transactions from Firestore
+      const q = query(
+        collection(db, 'transactions'),
+        where('shopId', '==', shopId),
+        where('date', '>=', Timestamp.fromDate(cutoffDate))
+      );
+
+      const snapshot = await getDocs(q);
+      const transactions = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Cache the transactions for offline use
+      await OfflineManager.cacheReport({
+        id: `cached_transactions_${shopId}`,
+        name: 'Recent Transactions',
+        type: 'transactions',
+        data: transactions,
+        shopId,
+        userId,
+        cachedAt: Date.now(),
+        expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
+      });
+
+      console.log(`✅ Cached ${transactions.length} transactions for offline export`);
+    } catch (error) {
+      console.error('Error caching transactions:', error);
+      throw new Error('فشل في حفظ البيانات للتصدير دون اتصال');
+    }
+  }
+
+  /**
+   * Export data from offline cache when internet is not available
+   */
+  static async exportOffline(
+    shopId: string,
+    config: ExportConfiguration,
+    language: Language = 'ar'
+  ): Promise<Blob> {
+    try {
+      console.log('📦 Exporting from offline cache...');
+
+      // Get cached report data
+      const cachedData = await this.getCachedReportData(shopId);
+
+      if (!cachedData || cachedData.length === 0) {
+        const noDataMsg = language === 'ar'
+          ? 'لا توجد بيانات محفوظة للتصدير. يرجى الاتصال بالإنترنت وتحديث البيانات.'
+          : 'No cached data available for export. Please connect to internet and refresh.';
+        throw new Error(noDataMsg);
+      }
+
+      // Export using cached data
+      const blob = await this.exportToFormat(cachedData, config, language);
+
+      console.log(`✅ Exported ${cachedData.length} records from offline cache`);
+      return blob;
+    } catch (error) {
+      console.error('Error exporting offline:', error);
+      const errorMsg = language === 'ar'
+        ? 'فشل في التصدير دون اتصال'
+        : 'Offline export failed';
+      throw new Error(errorMsg);
+    }
+  }
+
+  /**
+   * Get cached report data for offline export
+   */
+  static async getCachedReportData(shopId: string): Promise<any[]> {
+    try {
+      const reportId = `cached_transactions_${shopId}`;
+      const cachedReport = await OfflineManager.getCachedReport(reportId);
+
+      if (!cachedReport) {
+        console.warn('⚠️ No cached report found for shop:', shopId);
+        return [];
+      }
+
+      // Check if cache has expired
+      if (cachedReport.expiresAt && cachedReport.expiresAt < Date.now()) {
+        console.warn('⚠️ Cached report has expired');
+        // Don't delete it - better to have old data than no data offline
+      }
+
+      return cachedReport.data || [];
+    } catch (error) {
+      console.error('Error getting cached report:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if offline export is available for a shop
+   */
+  static async isOfflineExportAvailable(shopId: string): Promise<boolean> {
+    try {
+      const data = await this.getCachedReportData(shopId);
+      return data.length > 0;
+    } catch (error) {
+      console.error('Error checking offline export availability:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get information about cached data (for UI display)
+   */
+  static async getCachedDataInfo(shopId: string): Promise<{
+    recordCount: number;
+    cachedAt: Date | null;
+    expiresAt: Date | null;
+    isExpired: boolean;
+  } | null> {
+    try {
+      const reportId = `cached_transactions_${shopId}`;
+      const cachedReport = await OfflineManager.getCachedReport(reportId);
+
+      if (!cachedReport) {
+        return null;
+      }
+
+      const isExpired = cachedReport.expiresAt ? cachedReport.expiresAt < Date.now() : false;
+
+      return {
+        recordCount: cachedReport.data?.length || 0,
+        cachedAt: cachedReport.cachedAt ? new Date(cachedReport.cachedAt) : null,
+        expiresAt: cachedReport.expiresAt ? new Date(cachedReport.expiresAt) : null,
+        isExpired
+      };
+    } catch (error) {
+      console.error('Error getting cached data info:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear cached export data for a shop
+   */
+  static async clearOfflineCache(shopId: string): Promise<void> {
+    try {
+      const reportId = `cached_transactions_${shopId}`;
+      await OfflineManager.removeCachedReport(reportId);
+      console.log('✅ Cleared offline export cache for shop:', shopId);
+    } catch (error) {
+      console.error('Error clearing offline cache:', error);
+      throw new Error('فشل في مسح البيانات المحفوظة');
     }
   }
 

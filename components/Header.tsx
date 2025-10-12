@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Shop, User, Page } from '../types';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useTranslation } from '../i18n/useTranslation';
+import { getBilingualText } from '../utils/bilingual';
 
 const LogoutIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>;
 const RefreshIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h5M20 20v-5h-5M4 4l5 5M20 20l-5-5M15 4h5v5M9 20H4v-5"></path></svg>;
@@ -18,6 +21,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ activeShop, currentUser, onLogout, shops, onSelectShop, setPage, onToggleSidebar }) => {
+    const { t, language } = useTranslation();
     const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
     const userDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -61,12 +65,15 @@ const Header: React.FC<HeaderProps> = ({ activeShop, currentUser, onLogout, shop
                 {currentUser.role === 'user' && (
                     <button
                         onClick={handleRefresh}
-                        title="تحديث"
+                        title={t('common.actions.refresh')}
                         className="p-2 bg-background text-text-secondary hover:text-text-primary hover:bg-gray-700 rounded-md transition-colors border border-gray-700"
                     >
                         <RefreshIcon />
                     </button>
                 )}
+
+                {/* Language Switcher - Available to all users */}
+                <LanguageSwitcher className="border border-gray-700" />
             </div>
 
             {/* User Profile Section */}
@@ -75,10 +82,10 @@ const Header: React.FC<HeaderProps> = ({ activeShop, currentUser, onLogout, shop
                      <button onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)} className="flex items-center focus:outline-none">
                         <div className="text-left mr-4">
                             <p className="font-bold text-text-primary">{currentUser.name}</p>
-                            <p className="text-sm text-text-secondary">{currentUser.role === 'admin' ? 'مدير النظام' : 'مستخدم'}</p>
+                            <p className="text-sm text-text-secondary">{t(`common.roles.${currentUser.role}`)}</p>
                             {/* For User: Show Shop Label */}
                             {currentUser.role === 'user' && activeShop && (
-                                <p className="text-xs text-primary mt-1">{activeShop.name}</p>
+                                <p className="text-xs text-primary mt-1">{getBilingualText(activeShop.name, activeShop.nameEn, language)}</p>
                             )}
                         </div>
                         <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xl">
@@ -99,7 +106,7 @@ const Header: React.FC<HeaderProps> = ({ activeShop, currentUser, onLogout, shop
                                     role="menuitem"
                                 >
                                     <ProfileIcon />
-                                    <span className="mr-2">الملف الشخصي</span>
+                                    <span className="mr-2">{t('common.navigation.profile')}</span>
                                 </a>
                                 <a
                                     href="#"
@@ -108,7 +115,7 @@ const Header: React.FC<HeaderProps> = ({ activeShop, currentUser, onLogout, shop
                                     role="menuitem"
                                 >
                                     <LogoutIcon />
-                                    <span className="mr-2">تسجيل الخروج</span>
+                                    <span className="mr-2">{t('common.actions.logout')}</span>
                                 </a>
                             </div>
                         </div>

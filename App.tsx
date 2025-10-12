@@ -34,8 +34,13 @@ import { NotificationService } from './services/notificationService';
 import { LoggingService } from './services/loggingService';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import NotificationPermissionPrompt from './components/NotificationPermissionPrompt';
+import { I18nProvider, useI18n } from './i18n/i18nContext';
+import { OfflineManager } from './services/offlineManager';
+import { SyncService } from './services/syncService';
+import { useConnectionStatus } from './hooks/useConnectionStatus';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+    const { t } = useI18n();
     // --- STATE MANAGEMENT ---
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +63,10 @@ const App: React.FC = () => {
     // Push Notifications
     const pushNotifications = usePushNotifications(currentUser);
     const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+
+    // Offline Support
+    const connectionStatus = useConnectionStatus();
+    const [pendingCount, setPendingCount] = useState(0);
 
     // --- COMPUTED STATE ---
     // Notifications now arrive pre-sorted from Firestore
@@ -171,7 +180,62 @@ const App: React.FC = () => {
             console.log('❌ Conditions not met for showing notification prompt');
         }
     }, [currentUser, pushNotifications.isSupported, pushNotifications.permission]);
-    
+
+    // Initialize offline manager
+    useEffect(() => {
+        OfflineManager.initDB().then(() => {
+            console.log('✅ Offline manager initialized');
+        });
+    }, []);
+
+    // Update pending count
+    useEffect(() => {
+        const updatePendingCount = async () => {
+            if (activeShop) {
+                const count = await OfflineManager.getPendingCount(activeShop.id);
+                setPendingCount(count);
+            }
+        };
+
+        updatePendingCount();
+
+        // Update every 10 seconds
+        const interval = setInterval(updatePendingCount, 10000);
+        return () => clearInterval(interval);
+    }, [activeShop]);
+
+    // Auto-sync when connection is restored
+    useEffect(() => {
+        const handleReconnection = async () => {
+            if (connectionStatus.isFullyOnline && currentUser && activeShop) {
+                const needsSync = await SyncService.needsSync(activeShop.id);
+
+                if (needsSync) {
+                    console.log('🔄 Connection restored, starting auto-sync...');
+
+                    try {
+                        const results = await SyncService.syncPendingTransactions(
+                            currentUser,
+                            activeShop.id
+                        );
+
+                        if (results.success > 0) {
+                            console.log(`✅ Auto-sync: ${results.success} transactions synced`);
+                        }
+
+                        // Update pending count
+                        const count = await OfflineManager.getPendingCount(activeShop.id);
+                        setPendingCount(count);
+                    } catch (error) {
+                        console.error('❌ Auto-sync failed:', error);
+                    }
+                }
+            }
+        };
+
+        handleReconnection();
+    }, [connectionStatus.isFullyOnline, currentUser, activeShop]);
+
     const setupFirestoreListeners = (user: User) => {
         const unsubs: (() => void)[] = [];
 
@@ -314,8 +378,9 @@ const App: React.FC = () => {
 
         // Send real-time notification to admins
         if (currentUser.role !== 'admin') {
+            const currencySymbol = t('currency.symbol', {}, 'common');
             await NotificationService.notifyAdminsOfSystemEvent(
-                `معاملة جديدة في ${activeShop.name}: (${transaction.type}) - ${transaction.totalAmount} ج.س`,
+                `معاملة جديدة في ${activeShop.name}: (${transaction.type}) - ${transaction.totalAmount} ${currencySymbol}`,
                 LogType.ADD_ENTRY,
                 activeShop.id
             );
@@ -339,8 +404,9 @@ const App: React.FC = () => {
         // Send real-time notification to admins
         if (currentUser.role !== 'admin') {
             const txType = updatedTransaction.type || (originalTx ? originalTx.type : '');
+            const currencySymbol = t('currency.symbol', {}, 'common');
             await NotificationService.notifyAdminsOfSystemEvent(
-                `تعديل معاملة في ${activeShop.name}: (${txType}) - ${updatedTransaction.totalAmount} ج.س`,
+                `تعديل معاملة في ${activeShop.name}: (${txType}) - ${updatedTransaction.totalAmount} ${currencySymbol}`,
                 LogType.EDIT_ENTRY,
                 activeShop.id
             );
@@ -358,8 +424,9 @@ const App: React.FC = () => {
 
             // Send real-time notification to admins
             if (currentUser.role !== 'admin') {
+                const currencySymbol = t('currency.symbol', {}, 'common');
                 await NotificationService.notifyAdminsOfSystemEvent(
-                    `حذف معاملة في ${activeShop.name}: (${tx.type}) - ${tx.totalAmount} ج.س`,
+                    `حذف معاملة في ${activeShop.name}: (${tx.type}) - ${tx.totalAmount} ${currencySymbol}`,
                     LogType.DELETE_ENTRY,
                     activeShop.id
                 );
@@ -584,6 +651,14 @@ const App: React.FC = () => {
                 />
             )}
         </>
+    );
+};
+
+const App: React.FC = () => {
+    return (
+        <I18nProvider>
+            <AppContent />
+        </I18nProvider>
     );
 };
 

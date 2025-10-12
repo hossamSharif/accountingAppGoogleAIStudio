@@ -1,7 +1,17 @@
 /**
  * Centralized formatting utilities for numbers and currency
- * Using English numerals (0-9) with Egyptian Pound (ج.س) currency
+ * Using English numerals (0-9) with currency symbol based on selected language
  */
+
+import { translations } from '../i18n/translations';
+
+/**
+ * Get currency symbol based on current language
+ */
+const getCurrencySymbol = (): string => {
+  const language = (localStorage.getItem('app_language') || 'ar') as 'ar' | 'en';
+  return translations[language].common.currency.symbol;
+};
 
 /**
  * Format a number with English numerals and thousand separators
@@ -18,16 +28,17 @@ export const formatNumber = (value: number, decimals: number = 2): string => {
 };
 
 /**
- * Format a currency value with English numerals and ج.س symbol
+ * Format a currency value with English numerals and currency symbol
  * @param amount - The amount to format
  * @param showDecimals - Whether to show decimal places (default: true)
- * @returns Formatted currency string with English numerals and ج.س
+ * @returns Formatted currency string with English numerals and currency symbol
  */
 export const formatCurrency = (amount: number, showDecimals: boolean = true): string => {
   const decimals = showDecimals ? 2 : 0;
   const formattedNumber = formatNumber(Math.abs(amount), decimals);
   const sign = amount < 0 ? '-' : '';
-  return `${sign}${formattedNumber} ج.س`;
+  const currencySymbol = getCurrencySymbol();
+  return `${sign}${formattedNumber} ${currencySymbol}`;
 };
 
 /**

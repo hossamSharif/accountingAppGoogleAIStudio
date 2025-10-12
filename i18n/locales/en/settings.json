@@ -1,0 +1,23 @@
+{
+  "title": "System Settings",
+  "tabs": {
+    "shops": "Shop Management",
+    "users": "User Management",
+    "financialYears": "Financial Years",
+    "accounts": "Chart of Accounts",
+    "adminTools": "Admin Tools"
+  },
+  "messages": {
+    "loginRequired": "Login Required",
+    "loginRequiredMessage": "You must log in to access system settings.",
+    "selectShop": "Please Select a Shop",
+    "selectShopMessage": "You must select a shop from the list above to view its chart of accounts."
+  },
+  "adminTools": {
+    "title": "Admin Tools",
+    "currentUser": "Current User",
+    "role": "Role",
+    "available": "Admin tools are available",
+    "notAllowed": "You are not allowed to access admin tools"
+  }
+}

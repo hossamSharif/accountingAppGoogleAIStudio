@@ -1,0 +1,46 @@
+{
+  "title": "Account Statement",
+  "subtitle": "View detailed account statement and transactions",
+  "selectAccount": "Select Account",
+  "selectAccountPlaceholder": "-- Please select an account --",
+  "filterType": {
+    "label": "Period Type",
+    "range": "Range",
+    "day": "Day"
+  },
+  "dateLabels": {
+    "from": "From",
+    "to": "To",
+    "selectDay": "Select Day"
+  },
+  "summary": {
+    "openingBalance": "Opening Balance",
+    "totalDebit": "Total Debit",
+    "totalCredit": "Total Credit",
+    "closingBalance": "Closing Balance"
+  },
+  "table": {
+    "title": "Transactions",
+    "columns": {
+      "date": "Date",
+      "context": "Description",
+      "debit": "Debit",
+      "credit": "Credit",
+      "balance": "Balance"
+    },
+    "empty": "No transactions in the selected period."
+  },
+  "actions": {
+    "exportPDF": "Export PDF"
+  },
+  "messages": {
+    "selectAccountPrompt": "Please select an account and specify a period to view the statement.",
+    "exportError": "An error occurred while exporting the statement",
+    "exportSuccess": "Statement exported successfully"
+  },
+  "transfer": {
+    "to": "Transfer to: {account}",
+    "from": "Transfer from: {account}"
+  },
+  "unknown": "Unknown"
+}

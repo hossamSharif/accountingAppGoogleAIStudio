@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Log, LogType, User, Shop } from '../types';
+import { useTranslation } from '../i18n/useTranslation';
+import { translateEnum, logTypeTranslations } from '../i18n/enumTranslations';
+import { getBilingualText } from '../utils/bilingual';
 
 const LogTypeIcon: React.FC<{ type: LogType }> = ({ type }) => {
     const baseClasses = "w-6 h-6 p-1 rounded-full text-white flex items-center justify-center";
@@ -25,7 +28,7 @@ const LogTypeIcon: React.FC<{ type: LogType }> = ({ type }) => {
     }
 };
 
-const formatRelativeTime = (isoString: string) => {
+const formatRelativeTime = (isoString: string, language: 'ar' | 'en' = 'ar') => {
     const date = new Date(isoString);
     const now = new Date();
     const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
@@ -33,11 +36,19 @@ const formatRelativeTime = (isoString: string) => {
     const hours = Math.round(minutes / 60);
     const days = Math.round(hours / 24);
 
-    if (seconds < 60) return `منذ ${seconds} ثوان`;
-    if (minutes < 60) return `منذ ${minutes} دقائق`;
-    if (hours < 24) return `منذ ${hours} ساعات`;
-    if (days <= 7) return `منذ ${days} أيام`;
-    return date.toLocaleDateString('ar-EG');
+    if (language === 'ar') {
+        if (seconds < 60) return `منذ ${seconds} ثوان`;
+        if (minutes < 60) return `منذ ${minutes} دقائق`;
+        if (hours < 24) return `منذ ${hours} ساعات`;
+        if (days <= 7) return `منذ ${days} أيام`;
+        return date.toLocaleDateString('ar-EG');
+    } else {
+        if (seconds < 60) return `${seconds}s ago`;
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days <= 7) return `${days}d ago`;
+        return date.toLocaleDateString('en-US');
+    }
 };
 
 interface ShopLogsPageProps {
@@ -50,6 +61,7 @@ interface ShopLogsPageProps {
 }
 
 const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, shops, currentUser, onDeleteLogs }) => {
+    const { t, language } = useTranslation();
     const [logFilter, setLogFilter] = useState<LogType | 'ALL'>('ALL');
     const [selectedShopIds, setSelectedShopIds] = useState<string[]>([]);
     const [showAllShops, setShowAllShops] = useState(false);
@@ -83,12 +95,27 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
     const logTypes = Object.values(LogType) as string[];
 
     const getUserName = (userId: string) => {
-        return users.find(u => u.id === userId)?.name || 'مستخدم غير معروف';
+        return users.find(u => u.id === userId)?.name || (language === 'ar' ? 'مستخدم غير معروف' : 'Unknown User');
     };
 
     const getShopName = (shopId?: string) => {
-        if (!shopId) return 'غير محدد';
-        return shops.find(s => s.id === shopId)?.name || 'متجر غير معروف';
+        if (!shopId) return language === 'ar' ? 'غير محدد' : 'Not Specified';
+        const shop = shops.find(s => s.id === shopId);
+        if (!shop) return language === 'ar' ? 'متجر غير معروف' : 'Unknown Shop';
+        return getBilingualText(shop.name, shop.nameEn, language);
+    };
+
+    // Render log message with translation
+    const renderMessage = (log: Log) => {
+        if (log.messageKey) {
+            return t(log.messageKey, log.messageParams);
+        }
+
+        if (language === 'en' && log.messageEn) {
+            return log.messageEn;
+        }
+
+        return log.messageAr || log.message;
     };
 
     const toggleShopSelection = (shopId: string) => {
@@ -144,14 +171,21 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
     const handleDeleteSelected = async () => {
         if (selectedLogIds.size === 0 || !isAdmin) return;
 
-        if (window.confirm(`هل أنت متأكد من حذف ${selectedLogIds.size} سجل(ات)؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+        const confirmMessage = language === 'ar'
+            ? `هل أنت متأكد من حذف ${selectedLogIds.size} سجل(ات)؟ لا يمكن التراجع عن هذا الإجراء.`
+            : `Are you sure you want to delete ${selectedLogIds.size} log(s)? This action cannot be undone.`;
+
+        if (window.confirm(confirmMessage)) {
             setIsDeleting(true);
             try {
                 await onDeleteLogs(Array.from(selectedLogIds));
                 setSelectedLogIds(new Set()); // Clear selection after successful deletion
             } catch (error) {
                 console.error('Failed to delete logs:', error);
-                alert('فشل حذف السجلات. يرجى المحاولة مرة أخرى.');
+                const errorMessage = language === 'ar'
+                    ? 'فشل حذف السجلات. يرجى المحاولة مرة أخرى.'
+                    : 'Failed to delete logs. Please try again.';
+                alert(errorMessage);
             } finally {
                 setIsDeleting(false);
             }
@@ -162,8 +196,14 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
         return (
             <div className="flex items-center justify-center h-full">
                 <div className="text-center bg-surface p-8 rounded-lg">
-                    <h2 className="text-2xl font-bold mb-2">لا يوجد متجر محدد</h2>
-                    <p className="text-text-secondary">الرجاء اختيار متجر من القائمة في الأعلى لعرض سجل النشاطات الخاص به.</p>
+                    <h2 className="text-2xl font-bold mb-2">
+                        {language === 'ar' ? 'لا يوجد متجر محدد' : 'No Shop Selected'}
+                    </h2>
+                    <p className="text-text-secondary">
+                        {language === 'ar'
+                            ? 'الرجاء اختيار متجر من القائمة في الأعلى لعرض سجل النشاطات الخاص به.'
+                            : 'Please select a shop from the list above to view its activity log.'}
+                    </p>
                 </div>
             </div>
         );
@@ -174,14 +214,20 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
             <div className="flex justify-between items-center gap-4 flex-wrap">
                 <div>
                     <h1 className="text-3xl font-bold">
-                        سجل النشاطات
+                        {t('logs.shopLogsTitle')}
                     </h1>
                     <p className="text-text-secondary text-sm mt-1">
                         {showAllShops
-                            ? `عرض جميع المتاجر (${filteredLogs.length} سجل)`
+                            ? language === 'ar'
+                                ? `عرض جميع المتاجر (${filteredLogs.length} سجل)`
+                                : `Viewing all shops (${filteredLogs.length} logs)`
                             : selectedShopIds.length === 1
-                                ? `${getShopName(selectedShopIds[0])} (${filteredLogs.length} سجل)`
-                                : `${selectedShopIds.length} متاجر محددة (${filteredLogs.length} سجل)`
+                                ? language === 'ar'
+                                    ? `${getShopName(selectedShopIds[0])} (${filteredLogs.length} سجل)`
+                                    : `${getShopName(selectedShopIds[0])} (${filteredLogs.length} logs)`
+                                : language === 'ar'
+                                    ? `${selectedShopIds.length} متاجر محددة (${filteredLogs.length} سجل)`
+                                    : `${selectedShopIds.length} shops selected (${filteredLogs.length} logs)`
                         }
                     </p>
                 </div>
@@ -194,7 +240,7 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                             disabled={isDeleting}
                             className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isDeleting ? 'جاري الحذف...' : `حذف المحدد (${selectedLogIds.size})`}
+                            {isDeleting ? t('common.ui.loading') : `${t('logs.actions.clear')} (${selectedLogIds.size})`}
                         </button>
                     )}
 
@@ -207,21 +253,23 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                                 : 'bg-surface border border-gray-600 text-text-primary hover:border-primary'
                         }`}
                     >
-                        {showAllShops ? '✓ جميع المتاجر' : 'عرض جميع المتاجر'}
+                        {showAllShops
+                            ? (language === 'ar' ? '✓ جميع المتاجر' : '✓ All Shops')
+                            : (language === 'ar' ? 'عرض جميع المتاجر' : 'Show All Shops')}
                     </button>
 
                     {/* Log Type Filter */}
                     <div className="flex gap-2 items-center">
-                        <label htmlFor="logFilterAdmin" className="text-text-secondary">نوع النشاط:</label>
+                        <label htmlFor="logFilterAdmin" className="text-text-secondary">{t('logs.filters.type')}:</label>
                         <select
                             id="logFilterAdmin"
                             value={logFilter}
                             onChange={(e) => setLogFilter(e.target.value as LogType | 'ALL')}
                             className="bg-surface border border-gray-600 rounded-lg py-2 px-4 text-text-primary focus:ring-primary focus:border-primary"
                         >
-                            <option value="ALL">الكل</option>
+                            <option value="ALL">{t('logs.filters.allTypes')}</option>
                             {logTypes.map(type => (
-                                <option key={type} value={type}>{type}</option>
+                                <option key={type} value={type}>{translateEnum(type as LogType, logTypeTranslations, language)}</option>
                             ))}
                         </select>
                     </div>
@@ -235,7 +283,7 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                         </svg>
-                        تصفية حسب المتجر
+                        {language === 'ar' ? 'تصفية حسب المتجر' : 'Filter by Shop'}
                     </h3>
                     <div className="flex flex-wrap gap-2">
                         {shops.filter(shop => shop.isActive).map(shop => (
@@ -249,16 +297,20 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                                 }`}
                             >
                                 {selectedShopIds.includes(shop.id) && '✓ '}
-                                {shop.name}
+                                {getBilingualText(shop.name, shop.nameEn, language)}
                             </button>
                         ))}
                         {shops.filter(shop => shop.isActive).length === 0 && (
-                            <p className="text-text-secondary">لا توجد متاجر نشطة</p>
+                            <p className="text-text-secondary">
+                                {language === 'ar' ? 'لا توجد متاجر نشطة' : 'No active shops'}
+                            </p>
                         )}
                     </div>
                     {selectedShopIds.length > 1 && (
                         <div className="mt-3 text-sm text-text-secondary">
-                            تم اختيار {selectedShopIds.length} متجر
+                            {language === 'ar'
+                                ? `تم اختيار ${selectedShopIds.length} متجر`
+                                : `${selectedShopIds.length} shops selected`}
                         </div>
                     )}
                 </div>
@@ -276,7 +328,7 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                                     className="w-4 h-4 rounded border-gray-600 bg-background text-accent focus:ring-2 focus:ring-accent cursor-pointer"
                                 />
                                 <span className="text-text-primary font-medium">
-                                    {allSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                                    {allSelected ? t('common.actions.deselectAll') : t('common.actions.selectAll')}
                                 </span>
                             </label>
                         </div>
@@ -286,11 +338,11 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                             <tr className="border-b border-gray-700 text-text-secondary">
                                 {isAdmin && <th className="p-3 w-12"></th>}
                                 <th className="p-3 w-12"></th>
-                                <th className="p-3">المستخدم</th>
-                                {showShopColumn && <th className="p-3">المتجر</th>}
-                                <th className="p-3">النوع</th>
-                                <th className="p-3">الرسالة</th>
-                                <th className="p-3">الوقت</th>
+                                <th className="p-3">{t('logs.list.columns.user')}</th>
+                                {showShopColumn && <th className="p-3">{t('logs.list.columns.shop')}</th>}
+                                <th className="p-3">{t('logs.list.columns.type')}</th>
+                                <th className="p-3">{t('logs.list.columns.message')}</th>
+                                <th className="p-3">{t('logs.list.columns.timestamp')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -315,17 +367,19 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                                             </span>
                                         </td>
                                     )}
-                                    <td className="p-3 font-medium text-text-primary">{log.type}</td>
-                                    <td className="p-3 text-text-secondary">{log.message}</td>
-                                    <td className="p-3 text-text-secondary whitespace-nowrap">{formatRelativeTime(log.timestamp)}</td>
+                                    <td className="p-3 font-medium text-text-primary">
+                                        {translateEnum(log.type, logTypeTranslations, language)}
+                                    </td>
+                                    <td className="p-3 text-text-secondary">{renderMessage(log)}</td>
+                                    <td className="p-3 text-text-secondary whitespace-nowrap">{formatRelativeTime(log.timestamp, language)}</td>
                                 </tr>
                             ))}
                             {filteredLogs.length === 0 && (
                                 <tr>
                                     <td colSpan={showShopColumn ? (isAdmin ? 7 : 6) : (isAdmin ? 6 : 5)} className="text-center p-8 text-text-secondary">
                                         {selectedShopIds.length === 0 && !showAllShops
-                                            ? 'الرجاء اختيار متجر واحد على الأقل لعرض السجلات'
-                                            : 'لا توجد سجلات للتصفية الحالية'}
+                                            ? t('logs.list.selectShop')
+                                            : t('logs.list.empty')}
                                     </td>
                                 </tr>
                             )}

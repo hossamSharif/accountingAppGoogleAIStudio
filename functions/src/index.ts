@@ -1,6 +1,8 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { NotificationHelper } from './helpers';
+import { CURRENCY_SYMBOL_AR, pushNotificationTemplates } from './config';
+import { EmailService } from './emailService';
 
 // Initialize Admin SDK
 admin.initializeApp();
@@ -67,26 +69,37 @@ const getActiveAdmins = async (): Promise<admin.firestore.QuerySnapshot> => {
         .get();
 };
 
-const getLogTypeTitle = (logType: LogType): string => {
+// English titles for push notifications
+const getLogTypeTitleEnglish = (logType: LogType): string => {
     const titles: { [key in LogType]: string } = {
-        [LogType.LOGIN]: 'تسجيل دخول',
-        [LogType.LOGOUT]: 'تسجيل خروج',
-        [LogType.USER_ACTION]: 'إجراء مستخدم',
-        [LogType.ADD_ENTRY]: 'إضافة قيد',
-        [LogType.EDIT_ENTRY]: 'تعديل قيد',
-        [LogType.DELETE_ENTRY]: 'حذف قيد',
-        [LogType.SHOP_CREATED]: 'متجر جديد',
-        [LogType.SHOP_UPDATED]: 'تحديث متجر',
-        [LogType.SHOP_DELETED]: 'حذف متجر',
-        [LogType.SHOP_ACTIVATED]: 'تفعيل متجر',
-        [LogType.SHOP_DEACTIVATED]: 'إيقاف متجر',
-        [LogType.USER_CREATED]: 'مستخدم جديد',
-        [LogType.USER_UPDATED]: 'تحديث مستخدم',
-        [LogType.USER_DEACTIVATED]: 'إيقاف مستخدم',
-        [LogType.ERROR]: 'خطأ',
-        [LogType.SECURITY_ALERT]: 'تنبيه أمني'
+        [LogType.LOGIN]: 'Login',
+        [LogType.LOGOUT]: 'Logout',
+        [LogType.USER_ACTION]: 'User Action',
+        [LogType.ADD_ENTRY]: 'New Entry',
+        [LogType.EDIT_ENTRY]: 'Entry Updated',
+        [LogType.DELETE_ENTRY]: 'Entry Deleted',
+        [LogType.SHOP_CREATED]: 'New Shop',
+        [LogType.SHOP_UPDATED]: 'Shop Updated',
+        [LogType.SHOP_DELETED]: 'Shop Deleted',
+        [LogType.SHOP_ACTIVATED]: 'Shop Activated',
+        [LogType.SHOP_DEACTIVATED]: 'Shop Deactivated',
+        [LogType.USER_CREATED]: 'New User',
+        [LogType.USER_UPDATED]: 'User Updated',
+        [LogType.USER_DEACTIVATED]: 'User Deactivated',
+        [LogType.ERROR]: 'Error',
+        [LogType.SECURITY_ALERT]: 'Security Alert'
     };
-    return titles[logType] || 'إشعار';
+    return titles[logType] || 'Notification';
+};
+
+// Helper to format template
+const formatTemplate = (template: string, variables: { [key: string]: any }): string => {
+    let formatted = template;
+    Object.keys(variables).forEach(key => {
+        const regex = new RegExp(`{${key}}`, 'g');
+        formatted = formatted.replace(regex, variables[key] || '');
+    });
+    return formatted;
 };
 
 // Function 1: Notify admins when a transaction is created
@@ -160,7 +173,7 @@ export const onTransactionCreated = functions
                     userId: adminDoc.id,
                     originatingUserId: userDoc.id,
                     shopId: transaction.shopId,
-                    message: `المستخدم "${user.name}" أضاف معاملة جديدة من متجر "${shopName}" بقيمة ${transaction.totalAmount} ج.س`,
+                    message: `المستخدم "${user.name}" أضاف معاملة جديدة من متجر "${shopName}" بقيمة ${transaction.totalAmount} ${CURRENCY_SYMBOL_AR}`,
                     logType: LogType.ADD_ENTRY,
                     isRead: false,
                     timestamp: timestamp
@@ -172,9 +185,14 @@ export const onTransactionCreated = functions
             await batch.commit();
             console.log(`Created ${adminsSnapshot.size} notifications for transaction ${transactionId}`);
 
-            // Send push notifications to admins
-            const pushTitle = 'معاملة جديدة';
-            const pushBody = `${user.name} أضاف معاملة من متجر ${shopName} بقيمة ${transaction.totalAmount} ج.س`;
+            // Send push notifications to admins (English)
+            const pushTitle = pushNotificationTemplates.transaction.created.title;
+            const pushBody = formatTemplate(pushNotificationTemplates.transaction.created.body, {
+                userName: user.name,
+                transactionType: transaction.type,
+                amount: transaction.totalAmount,
+                shopName
+            });
             const pushData = {
                 url: '/notifications',
                 notificationId: transactionId,
@@ -183,6 +201,23 @@ export const onTransactionCreated = functions
             };
 
             await NotificationHelper.sendPushToAdmins(pushTitle, pushBody, pushData);
+
+            // Send email notification to admins
+            await EmailService.sendTransactionEmail('created', {
+                userName: user.name,
+                shopName,
+                transactionType: transaction.type,
+                amount: transaction.totalAmount,
+                description: transaction.description || 'No description',
+                date: new Date(transaction.date).toLocaleString('en-US', {
+                    timeZone: 'Africa/Khartoum',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
+            });
 
             return null;
         } catch (error) {
@@ -261,8 +296,8 @@ export const onLogCreated = functions
             await batch.commit();
             console.log(`Created ${adminsSnapshot.size} notifications for log ${logId}`);
 
-            // Send push notifications to admins
-            const pushTitle = getLogTypeTitle(log.type);
+            // Send push notifications to admins (English)
+            const pushTitle = getLogTypeTitleEnglish(log.type);
             const pushBody = log.message || `${userName}: ${log.type}`;
             const pushData = {
                 url: '/notifications',
@@ -372,5 +407,184 @@ export const processPendingNotifications = functions
             console.error('Error in processPendingNotifications:', error);
             // Don't mark as processed on error, will retry
             return null;
+        }
+    });
+
+// Function 5: Sync email updates from Firestore to Firebase Authentication
+export const onUserEmailUpdate = functions
+    .region('us-central1')
+    .firestore
+    .document('users/{userId}')
+    .onUpdate(async (change, context) => {
+        try {
+            const { userId } = context.params;
+            const beforeData = change.before.data();
+            const afterData = change.after.data();
+
+            // Check if email was changed
+            if (beforeData.email === afterData.email) {
+                console.log('Email not changed, skipping auth update');
+                return null;
+            }
+
+            const oldEmail = beforeData.email;
+            const newEmail = afterData.email;
+
+            console.log(`📧 Email changed for user ${userId}: ${oldEmail} → ${newEmail}`);
+
+            // Update Firebase Authentication email
+            try {
+                await admin.auth().updateUser(userId, {
+                    email: newEmail
+                });
+
+                console.log(`✅ Successfully updated Firebase Auth email for user ${userId}`);
+
+                // Send notification email to the user about the email change
+                await EmailService.sendEmail({
+                    to: [newEmail, oldEmail], // Send to both old and new email
+                    subject: 'Email Address Updated - Vavidia Accounting System',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+                            <h1 style="color: #2c3e50;">Email Address Updated ✅</h1>
+                            <p style="color: #34495e; font-size: 16px;">
+                                Your email address has been successfully updated in the Vavidia Accounting System.
+                            </p>
+                            <div style="background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                                <p style="color: #34495e; margin: 5px 0;">
+                                    <strong>Previous Email:</strong> ${oldEmail}
+                                </p>
+                                <p style="color: #34495e; margin: 5px 0;">
+                                    <strong>New Email:</strong> ${newEmail}
+                                </p>
+                                <p style="color: #34495e; margin: 5px 0;">
+                                    <strong>Date:</strong> ${new Date().toLocaleString('en-US', {
+                                        timeZone: 'Africa/Khartoum',
+                                        dateStyle: 'full',
+                                        timeStyle: 'long'
+                                    })}
+                                </p>
+                            </div>
+                            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                                <p style="color: #856404; margin: 0;">
+                                    <strong>⚠️ Security Notice:</strong> If you did not make this change, please contact your administrator immediately.
+                                </p>
+                            </div>
+                            <hr style="border: 1px solid #ecf0f1; margin: 20px 0;">
+                            <p style="color: #95a5a6; font-size: 12px; text-align: center;">
+                                Vavidia Accounting System - Email Notifications
+                            </p>
+                        </div>
+                    `,
+                    text: `Email Address Updated\n\nYour email address has been successfully updated.\n\nPrevious Email: ${oldEmail}\nNew Email: ${newEmail}\n\nIf you did not make this change, please contact your administrator immediately.`
+                });
+
+                // Notify admins if this is a regular user
+                if (afterData.role !== 'admin') {
+                    await NotificationHelper.sendPushToAdmins(
+                        'User Email Updated',
+                        `User "${afterData.name}" changed their email from ${oldEmail} to ${newEmail}`,
+                        {
+                            url: '/settings',
+                            userId: userId,
+                            logType: LogType.USER_UPDATED
+                        }
+                    );
+                }
+
+                return null;
+            } catch (authError: any) {
+                console.error('❌ Failed to update Firebase Auth email:', authError);
+
+                // If the email is already in use, revert the Firestore change
+                if (authError.code === 'auth/email-already-exists') {
+                    await change.after.ref.update({
+                        email: oldEmail
+                    });
+                    console.log('⚠️ Email already in use, reverted Firestore change');
+                }
+
+                throw authError;
+            }
+        } catch (error) {
+            console.error('Error in onUserEmailUpdate:', error);
+            return null;
+        }
+    });
+
+// Test Email Function (for verifying email setup)
+export const testEmail = functions
+    .region('us-central1')
+    .https.onRequest(async (req, res) => {
+        try {
+            console.log('📧 Test email function triggered');
+
+            // Get test email address from query parameter or use default
+            const testEmailAddress = (req.query.email as string) || 'hossamsharif1990@gmail.com';
+
+            await EmailService.sendEmail({
+                to: [testEmailAddress],
+                subject: 'Test Email - Vavidia Accounting System',
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+                        <h1 style="color: #2c3e50;">Test Email Successful! ✅</h1>
+                        <p style="color: #34495e; font-size: 16px;">
+                            This is a test email from the Vavidia Accounting System.
+                        </p>
+                        <div style="background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                            <h3 style="color: #27ae60;">Email Configuration Working:</h3>
+                            <ul style="color: #34495e;">
+                                <li>Gmail SMTP connection successful</li>
+                                <li>Nodemailer configured correctly</li>
+                                <li>Firebase Functions can send emails</li>
+                            </ul>
+                        </div>
+                        <p style="color: #7f8c8d; font-size: 14px;">
+                            <strong>Test Time:</strong> ${new Date().toLocaleString('en-US', {
+                                timeZone: 'Africa/Khartoum',
+                                dateStyle: 'full',
+                                timeStyle: 'long'
+                            })}
+                        </p>
+                        <hr style="border: 1px solid #ecf0f1; margin: 20px 0;">
+                        <p style="color: #95a5a6; font-size: 12px; text-align: center;">
+                            Vavidia Accounting System - Email Notifications
+                        </p>
+                    </div>
+                `,
+                text: 'Test Email Successful! This is a test email from the Vavidia Accounting System. Email configuration is working correctly.'
+            });
+
+            res.status(200).send(`
+                <html>
+                <head><title>Email Test Result</title></head>
+                <body style="font-family: Arial; padding: 20px;">
+                    <h1>✅ Test Email Sent Successfully!</h1>
+                    <p>Check the inbox of: <strong>${testEmailAddress}</strong></p>
+                    <p>The email should arrive within a few seconds.</p>
+                    <hr>
+                    <p><small>You can test with a different email by adding ?email=youremail@example.com to the URL</small></p>
+                </body>
+                </html>
+            `);
+        } catch (error: any) {
+            console.error('❌ Test email failed:', error);
+            res.status(500).send(`
+                <html>
+                <head><title>Email Test Failed</title></head>
+                <body style="font-family: Arial; padding: 20px;">
+                    <h1>❌ Test Email Failed</h1>
+                    <p style="color: red;"><strong>Error:</strong> ${error.message}</p>
+                    <h3>Troubleshooting Steps:</h3>
+                    <ol>
+                        <li>Check Firebase Functions logs: <code>firebase functions:log</code></li>
+                        <li>Verify SMTP credentials are set: <code>firebase functions:config:get</code></li>
+                        <li>Ensure 2FA is enabled on Gmail account</li>
+                        <li>Verify app password is correct (16 characters)</li>
+                        <li>Check Gmail account hasn't blocked the login</li>
+                    </ol>
+                </body>
+                </html>
+            `);
         }
     });

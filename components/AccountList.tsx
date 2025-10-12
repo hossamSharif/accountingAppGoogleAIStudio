@@ -1,6 +1,9 @@
 import React, { useMemo } from 'react';
 import { Account, AccountNature, Transaction, User } from '../types';
 import { formatCurrency } from '../utils/formatting';
+import { useTranslation } from '../i18n/useTranslation';
+import { translateEnum, accountClassificationTranslations, accountNatureTranslations } from '../i18n/enumTranslations';
+import { getBilingualText } from '../utils/bilingual';
 
 const EditIcon = () => (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
@@ -27,6 +30,7 @@ interface AccountListProps {
 }
 
 const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdit, onToggleStatus, onDelete, accountBalances, currentUser }) => {
+    const { t, language } = useTranslation();
     const parentAccounts = accounts.filter(a => !a.parentId).sort((a,b) => a.accountCode.localeCompare(b.accountCode));
     const getChildAccounts = (parentId: string) => accounts.filter(a => a.parentId === parentId).sort((a,b) => a.accountCode.localeCompare(b.accountCode));
 
@@ -52,20 +56,27 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
         const canToggleStatus = isAdmin || !isParent;
         const canDelete = (isAdmin || !isParent) && !hasTransactions;
 
+        // Get bilingual account name
+        const accountName = getBilingualText(account.name, account.nameEn, language);
+
         return (
              <tr key={account.id} className={isParent ? "bg-gray-800 hover:bg-gray-700/50" : "bg-gray-800/30 border-b border-gray-700 transition-colors duration-200 hover:bg-background/50"}>
                 <td className="p-3 text-text-secondary font-mono">{account.accountCode}</td>
                 <td className={`p-3 font-medium ${isParent ? 'font-bold text-text-primary' : 'text-gray-300'}`}>
                     {/* Add visual hierarchy with dash for sub-accounts */}
                     {!isParent && <span className="text-gray-500 mr-2">—</span>}
-                    {account.name}
+                    {accountName}
                 </td>
-                <td className="p-3 text-text-secondary">{account.classification}</td>
-                <td className="p-3 text-text-secondary">{account.nature}</td>
+                <td className="p-3 text-text-secondary">
+                    {translateEnum(account.classification, accountClassificationTranslations, language)}
+                </td>
+                <td className="p-3 text-text-secondary">
+                    {translateEnum(account.nature, accountNatureTranslations, language)}
+                </td>
                 <td className={`p-3 font-mono ${isParent ? 'font-bold text-accent' : 'text-gray-300'}`}>{formatCurrency(displayBalance)}</td>
                 <td className="p-3">
                     <span className={`px-2 py-1 text-xs rounded-full ${account.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                        {account.isActive ? 'نشط' : 'غير نشط'}
+                        {account.isActive ? t('accounts.status.active') : t('accounts.status.inactive')}
                     </span>
                 </td>
                 <td className="p-3 text-left">
@@ -74,7 +85,7 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                             onClick={() => canEdit && onEdit(account)}
                             disabled={!canEdit}
                             className="text-accent hover:text-blue-400 p-2 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-                            aria-label={`تعديل ${account.name}`}
+                            aria-label={`${t('accounts.actions.edit')} ${accountName}`}
                         >
                             <EditIcon />
                         </button>
@@ -82,7 +93,7 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                             onClick={() => canToggleStatus && onToggleStatus(account)}
                             disabled={!canToggleStatus}
                             className={`p-2 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${account.isActive ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`}
-                            aria-label={`${account.isActive ? 'إلغاء تفعيل' : 'تفعيل'} ${account.name}`}
+                            aria-label={`${account.isActive ? t('accounts.actions.deactivate') : t('accounts.actions.activate')} ${accountName}`}
                         >
                             {account.isActive ? <ToggleOffIcon /> : <ToggleOnIcon />}
                         </button>
@@ -90,8 +101,8 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                             onClick={() => canDelete && onDelete(account)}
                             disabled={!canDelete}
                             className="text-red-500 hover:text-red-400 p-2 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-                            aria-label={`حذف ${account.name}`}
-                            title={hasTransactions ? 'لا يمكن حذف حساب مرتبط بحركات' : !canDelete ? 'غير مسموح' : `حذف ${account.name}`}
+                            aria-label={`${t('accounts.actions.delete')} ${accountName}`}
+                            title={hasTransactions ? t('accounts.messages.deleteError') : !canDelete ? '' : `${t('accounts.actions.delete')} ${accountName}`}
                         >
                             <DeleteIcon />
                         </button>
@@ -107,13 +118,13 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                 <table className="w-full text-right">
                     <thead>
                         <tr className="border-b border-gray-700 text-text-secondary">
-                            <th className="p-3">الرمز</th>
-                            <th className="p-3">اسم الحساب</th>
-                            <th className="p-3">التصنيف</th>
-                            <th className="p-3">الطبيعة</th>
-                            <th className="p-3">الرصيد الحالي</th>
-                            <th className="p-3">الحالة</th>
-                            <th className="p-3 text-left">الإجراءات</th>
+                            <th className="p-3">{t('accounts.table.columns.code')}</th>
+                            <th className="p-3">{t('accounts.table.columns.name')}</th>
+                            <th className="p-3">{t('accounts.table.columns.classification')}</th>
+                            <th className="p-3">{t('accounts.table.columns.nature')}</th>
+                            <th className="p-3">{t('accounts.table.columns.balance')}</th>
+                            <th className="p-3">{t('accounts.table.columns.status')}</th>
+                            <th className="p-3 text-left">{t('accounts.table.columns.actions')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -126,7 +137,7 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                          {accounts.length === 0 && (
                             <tr>
                                 <td colSpan={7} className="text-center p-6 text-text-secondary">
-                                    لا توجد حسابات تطابق بحثك أو لم يتم إضافة أي حسابات بعد.
+                                    {t('accounts.table.empty')}
                                 </td>
                             </tr>
                         )}
