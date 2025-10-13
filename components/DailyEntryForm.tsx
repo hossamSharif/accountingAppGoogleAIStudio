@@ -143,18 +143,29 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
             supplierAccounts: subAccountsOnly.filter(a => a.type === AccountType.SUPPLIER),
         };
     }, [formMode, accounts, isEditMode, transactionToEdit]);
-    
+
+    // Track if modal was just opened to prevent reset on re-renders
+    const wasOpenRef = React.useRef(false);
+
     useEffect(() => {
-        if (!isOpen) return;
+        // Only run initialization when modal actually opens (isOpen changes from false to true)
+        const justOpened = isOpen && !wasOpenRef.current;
+        wasOpenRef.current = isOpen;
+
+        if (!justOpened) return;
+
+        // Reset the prevFormMode ref when modal opens
+        prevFormMode.current = formMode;
+
         setError('');
         setIsAddingParty(false);
         setNewPartyName('');
         setIsAddingCategory(false);
         setNewCategoryName('');
-        
+
         const cashAccount = paymentAccounts.find(a => a.type === AccountType.CASH);
         const bankAccount = paymentAccounts.find(a => a.type === AccountType.BANK);
-        
+
         if (isEditMode) {
             // Populate form for editing
             setDescription(transactionToEdit.description || '');
@@ -202,26 +213,49 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
             setPaymentForm({ partyId: '', paymentAccountId: cashAccount?.id || '', amount: '' });
         }
 
-    }, [isOpen, transactionToEdit, accounts]);
+    }, [isOpen, transactionToEdit]);
+
+    // Track the previous formMode to detect actual changes
+    const prevFormMode = React.useRef<FormMode>(TransactionType.SALE);
 
     useEffect(() => {
-        if (isOpen && !isEditMode) {
-            setError(''); setIsAddingParty(false); setNewPartyName('');
-            setIsAddingCategory(false); setNewCategoryName('');
-            setTotalAmount(''); setPaidAmount(''); setDescription('');
+        // Only run this effect when formMode actually changes (not on every render)
+        if (isOpen && !isEditMode && prevFormMode.current !== formMode) {
+            prevFormMode.current = formMode;
+
+            // Reset only add party/category UI states
+            setError('');
+            setIsAddingParty(false);
+            setNewPartyName('');
+            setIsAddingCategory(false);
+            setNewCategoryName('');
+
+            // Only reset amounts and description when switching transaction type
+            setTotalAmount('');
+            setPaidAmount('');
+            setDescription('');
+
+            // Set default account selections based on form mode
             if (formMode === TransactionType.SALE || formMode === TransactionType.PURCHASE) {
-                // Auto-select first account in customer/supplier field for sales/purchase
                 setPartyId(partyAccounts[0]?.id || '');
                 setCategoryId(categoryAccounts[0]?.id || '');
             } else if (formMode === TransactionType.EXPENSE) {
                 setCategoryId(categoryAccounts[0]?.id || '');
             } else if (formMode === 'Customer Payment') {
-                setPaymentForm({ partyId: customerAccounts[0]?.id || '', paymentAccountId: paymentAccounts.find(a => a.type === AccountType.CASH)?.id || '', amount: '' });
+                setPaymentForm({
+                    partyId: customerAccounts[0]?.id || '',
+                    paymentAccountId: paymentAccounts.find(a => a.type === AccountType.CASH)?.id || '',
+                    amount: ''
+                });
             } else if (formMode === 'Supplier Payment') {
-                setPaymentForm({ partyId: supplierAccounts[0]?.id || '', paymentAccountId: paymentAccounts.find(a => a.type === AccountType.CASH)?.id || '', amount: '' });
+                setPaymentForm({
+                    partyId: supplierAccounts[0]?.id || '',
+                    paymentAccountId: paymentAccounts.find(a => a.type === AccountType.CASH)?.id || '',
+                    amount: ''
+                });
             }
         }
-    }, [formMode, isOpen, isEditMode, categoryAccounts, customerAccounts, supplierAccounts, paymentAccounts, partyAccounts]);
+    }, [formMode, isOpen, isEditMode]);
 
 
     useEffect(() => {

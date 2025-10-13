@@ -18,8 +18,9 @@ export const useConnectionStatus = () => {
   // Check actual internet connectivity (not just network connection)
   const checkInternetAccess = useCallback(async (): Promise<boolean> => {
     try {
-      // Try to fetch a small file from Firebase
-      const response = await fetch('https://www.gstatic.com/firebasejs/ping', {
+      // Try to fetch from a reliable endpoint
+      // Using mode: 'no-cors' means we can't read the response, but we can detect if the request fails
+      const response = await fetch('https://www.google.com/generate_204', {
         method: 'HEAD',
         cache: 'no-cache',
         mode: 'no-cors'
@@ -64,19 +65,25 @@ export const useConnectionStatus = () => {
     };
   }, [checkInternetAccess]);
 
-  // Periodic internet check (every 30 seconds when online)
+  // Periodic internet check (every 60 seconds when online)
   useEffect(() => {
     if (!status.isOnline) return;
 
     const intervalId = setInterval(async () => {
       const hasInternet = await checkInternetAccess();
-      setStatus(prev => ({
-        ...prev,
-        hasInternetAccess: hasInternet,
-        isFirestoreConnected: hasInternet,
-        lastChecked: new Date()
-      }));
-    }, 30000); // Check every 30 seconds
+      setStatus(prev => {
+        // Only update if the status actually changed to prevent unnecessary re-renders
+        if (prev.hasInternetAccess === hasInternet && prev.isFirestoreConnected === hasInternet) {
+          return prev;
+        }
+        return {
+          ...prev,
+          hasInternetAccess: hasInternet,
+          isFirestoreConnected: hasInternet,
+          lastChecked: new Date()
+        };
+      });
+    }, 60000); // Check every 60 seconds (increased from 30)
 
     return () => clearInterval(intervalId);
   }, [status.isOnline, checkInternetAccess]);

@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Sensitive data - DO NOT COMMIT
+auth-users.json
+*.env.local
+*.env.production.local
+serviceAccountKey.json
+.firebase/hosting.*.cache

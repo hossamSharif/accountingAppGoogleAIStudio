@@ -512,6 +512,97 @@ export const onUserEmailUpdate = functions
         }
     });
 
+// Temporary function to check and fix email mismatches
+export const checkAndFixEmailMismatch = functions
+    .region('us-central1')
+    .https.onRequest(async (req, res) => {
+        try {
+            const results: any[] = [];
+
+            // Get all admin users from Firestore
+            const usersSnapshot = await db.collection('users')
+                .where('role', '==', 'admin')
+                .get();
+
+            for (const doc of usersSnapshot.docs) {
+                const userId = doc.id;
+                const firestoreData = doc.data();
+                const firestoreEmail = firestoreData.email;
+
+                try {
+                    // Get Firebase Auth user
+                    const authUser = await admin.auth().getUser(userId);
+                    const authEmail = authUser.email;
+
+                    const result: any = {
+                        userId,
+                        name: firestoreData.name,
+                        firestoreEmail,
+                        authEmail,
+                        match: authEmail === firestoreEmail
+                    };
+
+                    // If mismatch and fix=true in query params, fix it
+                    if (!result.match && req.query.fix === 'true') {
+                        await admin.auth().updateUser(userId, {
+                            email: firestoreEmail
+                        });
+                        result.fixed = true;
+                        result.message = `Updated Auth email from ${authEmail} to ${firestoreEmail}`;
+                    } else if (!result.match) {
+                        result.message = `Mismatch detected! Add ?fix=true to URL to sync Auth to Firestore email`;
+                    }
+
+                    results.push(result);
+                } catch (authError: any) {
+                    results.push({
+                        userId,
+                        name: firestoreData.name,
+                        firestoreEmail,
+                        error: authError.message
+                    });
+                }
+            }
+
+            res.status(200).send(`
+                <html>
+                <head>
+                    <title>Email Mismatch Checker</title>
+                    <style>
+                        body { font-family: Arial; padding: 20px; }
+                        .match { background: #d4edda; padding: 15px; margin: 10px 0; border-radius: 5px; }
+                        .mismatch { background: #f8d7da; padding: 15px; margin: 10px 0; border-radius: 5px; }
+                        .fixed { background: #d1ecf1; padding: 15px; margin: 10px 0; border-radius: 5px; }
+                        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Email Mismatch Check Results</h1>
+                    ${results.map(r => {
+                        const className = r.fixed ? 'fixed' : (r.match ? 'match' : 'mismatch');
+                        return `
+                            <div class="${className}">
+                                <h3>${r.name} (${r.userId})</h3>
+                                <p><strong>Firestore Email:</strong> <code>${r.firestoreEmail}</code></p>
+                                <p><strong>Auth Email:</strong> <code>${r.authEmail || 'N/A'}</code></p>
+                                ${r.match ? '<p>✅ Emails match!</p>' : ''}
+                                ${r.message ? `<p>${r.message}</p>` : ''}
+                                ${r.error ? `<p><strong>Error:</strong> ${r.error}</p>` : ''}
+                            </div>
+                        `;
+                    }).join('')}
+                    ${req.query.fix !== 'true' && results.some(r => !r.match) ?
+                        '<p><a href="?fix=true"><button style="padding: 10px 20px; font-size: 16px;">🔧 Fix All Mismatches</button></a></p>' :
+                        ''}
+                </body>
+                </html>
+            `);
+        } catch (error: any) {
+            console.error('Error:', error);
+            res.status(500).send(`<h1>Error</h1><pre>${error.message}</pre>`);
+        }
+    });
+
 // Test Email Function (for verifying email setup)
 export const testEmail = functions
     .region('us-central1')
