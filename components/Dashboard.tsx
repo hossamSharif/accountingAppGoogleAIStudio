@@ -4,6 +4,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import StatCard from './StatCard';
 import DailyEntryForm from './DailyEntryForm';
 import RecentTransactions from './RecentTransactions';
+import OfflineTransactionsView from './OfflineTransactionsView';
 import { Transaction, Account, TransactionType, FinancialYear, AccountType, Shop, LogType, User } from '../types';
 import { formatCurrency } from '../utils/formatting';
 import { BalanceCalculator } from '../services/balanceCalculator';
@@ -103,6 +104,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransactions, ac
     const connectionStatus = useConnectionStatus();
     const [pendingCount, setPendingCount] = useState(0);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [showOfflineTransactions, setShowOfflineTransactions] = useState(false);
 
     const handleStartEdit = (transaction: Transaction) => {
         setEditingTransaction(transaction);
@@ -329,6 +331,47 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransactions, ac
             `}</style>
 
             <DateNavigator selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
+
+            {/* Offline Transactions Section */}
+            {pendingCount > 0 && (
+                <div className="bg-surface rounded-lg shadow-md">
+                    <button
+                        onClick={() => setShowOfflineTransactions(!showOfflineTransactions)}
+                        className="w-full p-4 flex items-center justify-between hover:bg-background/50 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-lg font-semibold text-text-primary">
+                                {t('dashboard.offlineTransactions', language === 'ar' ? 'المعاملات غير المتصلة' : 'Offline Transactions')} ({pendingCount})
+                            </span>
+                        </div>
+                        <svg
+                            className={`w-5 h-5 text-text-secondary transform transition-transform ${showOfflineTransactions ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    {showOfflineTransactions && user && activeShop && (
+                        <div className="p-4 border-t border-gray-700">
+                            <OfflineTransactionsView
+                                user={user}
+                                activeShop={activeShop}
+                                onUpdate={async () => {
+                                    // Update pending count after any changes
+                                    const count = await OfflineManager.getPendingCount(activeShop.id);
+                                    setPendingCount(count);
+                                }}
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
 
             <RecentTransactions
                 transactions={dailyTransactions}

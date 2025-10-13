@@ -148,6 +148,50 @@ export class OfflineManager {
     console.log('✅ Transaction synced and removed from queue:', id);
   }
 
+  // Edit a pending transaction
+  static async editPendingTransaction(
+    id: string,
+    updatedTransaction: any
+  ): Promise<void> {
+    const db = await this.initDB();
+    const existingTx = await db.get('pendingTransactions', id);
+
+    if (!existingTx) {
+      throw new Error(`Transaction ${id} not found`);
+    }
+
+    // Update the transaction while preserving metadata
+    const updated = {
+      ...existingTx,
+      transaction: updatedTransaction,
+      timestamp: Date.now(), // Update timestamp to reflect modification
+      status: 'pending' as const // Reset status to pending after edit
+    };
+
+    await db.put('pendingTransactions', updated);
+    console.log('📝 Transaction updated:', id);
+  }
+
+  // Delete a pending transaction (user initiated)
+  static async deletePendingTransaction(id: string): Promise<void> {
+    const db = await this.initDB();
+    const tx = await db.get('pendingTransactions', id);
+
+    if (!tx) {
+      throw new Error(`Transaction ${id} not found`);
+    }
+
+    await db.delete('pendingTransactions', id);
+    console.log('🗑️ Transaction deleted from offline queue:', id);
+  }
+
+  // Get a single pending transaction
+  static async getPendingTransaction(id: string): Promise<any | null> {
+    const db = await this.initDB();
+    const tx = await db.get('pendingTransactions', id);
+    return tx || null;
+  }
+
   // Clear all pending transactions (admin only)
   static async clearAllPending(): Promise<void> {
     const db = await this.initDB();
