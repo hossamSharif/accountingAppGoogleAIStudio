@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Account, AccountType, AccountClassification, AccountNature, User } from '../types';
+import { Account, AccountType, AccountClassification, AccountNature, User, Shop } from '../types';
 import { useTranslation } from '../i18n/useTranslation';
 import { translateEnum, accountTypeTranslations, accountClassificationTranslations, accountNatureTranslations } from '../i18n/enumTranslations';
 import { getBilingualText } from '../utils/bilingual';
@@ -11,9 +11,10 @@ interface AccountModalProps {
     accountToEdit: Account | null;
     accounts: Account[];
     currentUser: User | null;
+    currentShop?: Shop | null;
 }
 
-const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, accountToEdit, accounts, currentUser }) => {
+const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, accountToEdit, accounts, currentUser, currentShop }) => {
     const { t, language } = useTranslation();
     const [name, setName] = useState('');
     const [accountCode, setAccountCode] = useState('');
@@ -91,7 +92,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
             // For sub-accounts
             if (!name.trim() || !accountCode.trim() || !parentId || !classification || !nature || !type) return;
         }
-        
+
         const parsedOpeningBalance = parseFloat(openingBalance);
 
         if (accountToEdit) {
@@ -103,18 +104,28 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                 type,
                 parentId: isMainAccount ? undefined : parentId,
                 isActive,
-                openingBalance: isNaN(parsedOpeningBalance) ? accountToEdit.openingBalance : parsedOpeningBalance
+                openingBalance: isNaN(parsedOpeningBalance) ? (accountToEdit.openingBalance || 0) : parsedOpeningBalance
             };
             onSave({ ...accountData, id: accountToEdit.id, shopId: accountToEdit.shopId });
         } else {
+            // For new accounts, append shop code to the name
+            let finalAccountName = name.trim();
+            if (currentShop && currentShop.shopCode) {
+                // Check if the name doesn't already have the shop code suffix
+                const shopCodeSuffix = ` - ${currentShop.shopCode}`;
+                if (!finalAccountName.endsWith(shopCodeSuffix)) {
+                    finalAccountName = `${finalAccountName}${shopCodeSuffix}`;
+                }
+            }
+
             const newAccountData = {
-                name,
+                name: finalAccountName,
                 accountCode,
                 classification,
                 nature,
                 type,
                 parentId: isMainAccount ? undefined : parentId,
-                openingBalance: isNaN(parsedOpeningBalance) ? undefined : parsedOpeningBalance
+                openingBalance: isNaN(parsedOpeningBalance) ? 0 : parsedOpeningBalance
             };
             onSave(newAccountData);
         }
@@ -266,21 +277,25 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                             </div>
                         )}
 
-                        {!accountToEdit && (
-                            <div>
-                                <label htmlFor="openingBalance" className="block text-sm font-medium text-text-secondary mb-1">
-                                    {t('accounts.form.openingBalance')}
-                                </label>
-                                <input
-                                    type="number"
-                                    id="openingBalance"
-                                    value={openingBalance}
-                                    onChange={(e) => setOpeningBalance(e.target.value)}
-                                    placeholder={t('accounts.form.openingBalancePlaceholder')}
-                                    className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
-                                />
-                            </div>
-                        )}
+                        <div>
+                            <label htmlFor="openingBalance" className="block text-sm font-medium text-text-secondary mb-1">
+                                {t('accounts.form.openingBalance')}
+                                {accountToEdit && !isAdmin && (
+                                    <span className="mr-2 text-xs text-yellow-400">
+                                        ({t('accounts.openingBalanceAdminOnly')})
+                                    </span>
+                                )}
+                            </label>
+                            <input
+                                type="number"
+                                id="openingBalance"
+                                value={openingBalance}
+                                onChange={(e) => setOpeningBalance(e.target.value)}
+                                placeholder={t('accounts.form.openingBalancePlaceholder')}
+                                className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={accountToEdit && !isAdmin}
+                            />
+                        </div>
                         {accountToEdit && !isMainAccount && (
                              <div className="flex items-center">
                                 <input

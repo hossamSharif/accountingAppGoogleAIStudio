@@ -33,9 +33,9 @@ export const accountNatureTranslations: Record<AccountNature, BilingualEnum> = {
 };
 
 export const transactionTypeTranslations: Record<TransactionType, BilingualEnum> = {
-  [TransactionType.SALE]: { ar: 'بيع', en: 'Sale' },
-  [TransactionType.PURCHASE]: { ar: 'شراء', en: 'Purchase' },
-  [TransactionType.EXPENSE]: { ar: 'صرف', en: 'Expense' },
+  [TransactionType.SALE]: { ar: 'قبض من عميل', en: 'Receipt from Customer' },
+  [TransactionType.PURCHASE]: { ar: 'دفع لمورد', en: 'Payment to Supplier' },
+  [TransactionType.EXPENSE]: { ar: 'مصروف', en: 'Expense' },
   [TransactionType.TRANSFER]: { ar: 'تحويل', en: 'Transfer' },
 };
 

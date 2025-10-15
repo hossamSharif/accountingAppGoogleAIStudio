@@ -13,7 +13,10 @@
     "cashBalance": "رصيد الصندوق",
     "bankBalance": "رصيد البنك",
     "daily": "يومي",
-    "total": "إجمالي"
+    "total": "إجمالي",
+    "accrual": "إجمالي",
+    "cash": "نقدي",
+    "dailyRevenue": "ايرادات اليوم"
   },
   "actions": {
     "addTransaction": "إضافة معاملة",

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Transaction, TransactionType, Account, AccountType, TransactionEntry, FinancialYear } from '../types';
+import { Transaction, TransactionType, Account, AccountType, TransactionEntry, FinancialYear, Shop } from '../types';
 import { useTranslation } from '../i18n/useTranslation';
 import { translateEnum, transactionTypeTranslations } from '../i18n/enumTranslations';
 import { getBilingualText } from '../utils/bilingual';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { OfflineManager } from '../services/offlineManager';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const CloseIcon = () => (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -83,6 +85,31 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
     // State for adding new category accounts (sales/purchase/expense sub-accounts)
     const [isAddingCategory, setIsAddingCategory] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
+
+    // State for current shop (for appending shop code to account names)
+    const [currentShop, setCurrentShop] = useState<Shop | null>(null);
+
+    // Fetch shop data when activeShopId changes
+    useEffect(() => {
+        const fetchShop = async () => {
+            if (!activeShopId) {
+                setCurrentShop(null);
+                return;
+            }
+
+            try {
+                const shopDoc = await getDoc(doc(db, 'shops', activeShopId));
+                if (shopDoc.exists()) {
+                    setCurrentShop({ id: shopDoc.id, ...shopDoc.data() } as Shop);
+                }
+            } catch (error) {
+                console.error('Error fetching shop:', error);
+                setCurrentShop(null);
+            }
+        };
+
+        fetchShop();
+    }, [activeShopId]);
 
     const { isFormDisabled, disabledMessage } = useMemo(() => {
         if (!openFinancialYear) {
@@ -273,8 +300,18 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
             setError(t('transactions.validation.noParentAccount', { type: partyType }));
             return;
         }
+
+        // Append shop code to the name
+        let finalAccountName = newPartyName.trim();
+        if (currentShop && currentShop.shopCode) {
+            const shopCodeSuffix = ` - ${currentShop.shopCode}`;
+            if (!finalAccountName.endsWith(shopCodeSuffix)) {
+                finalAccountName = `${finalAccountName}${shopCodeSuffix}`;
+            }
+        }
+
         const newAccount = onAddAccount({
-            name: newPartyName.trim(),
+            name: finalAccountName,
             type: partyType,
             parentId: parentAccount.id,
             accountCode: `${parentAccount.accountCode}-${Date.now().toString().slice(-6)}`, // Generate unique code
@@ -317,8 +354,17 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
             return;
         }
 
+        // Append shop code to the name
+        let finalAccountName = newCategoryName.trim();
+        if (currentShop && currentShop.shopCode) {
+            const shopCodeSuffix = ` - ${currentShop.shopCode}`;
+            if (!finalAccountName.endsWith(shopCodeSuffix)) {
+                finalAccountName = `${finalAccountName}${shopCodeSuffix}`;
+            }
+        }
+
         const newAccount = onAddAccount({
-            name: newCategoryName.trim(),
+            name: finalAccountName,
             type: categoryType,
             parentId: parentAccount.id,
             accountCode: `${parentAccount.accountCode}-${Date.now().toString().slice(-6)}`, // Generate unique code
@@ -612,8 +658,18 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                         setError(t('transactions.validation.noParentAccount', { type: AccountType.CUSTOMER }));
                                         return;
                                     }
+
+                                    // Append shop code to the name
+                                    let finalAccountName = newPartyName.trim();
+                                    if (currentShop && currentShop.shopCode) {
+                                        const shopCodeSuffix = ` - ${currentShop.shopCode}`;
+                                        if (!finalAccountName.endsWith(shopCodeSuffix)) {
+                                            finalAccountName = `${finalAccountName}${shopCodeSuffix}`;
+                                        }
+                                    }
+
                                     const newAccount = onAddAccount({
-                                        name: newPartyName.trim(),
+                                        name: finalAccountName,
                                         type: AccountType.CUSTOMER,
                                         parentId: parentAccount.id,
                                         accountCode: `${parentAccount.accountCode}-${Date.now().toString().slice(-6)}`,
@@ -694,8 +750,18 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
                                         setError(t('transactions.validation.noParentAccount', { type: AccountType.SUPPLIER }));
                                         return;
                                     }
+
+                                    // Append shop code to the name
+                                    let finalAccountName = newPartyName.trim();
+                                    if (currentShop && currentShop.shopCode) {
+                                        const shopCodeSuffix = ` - ${currentShop.shopCode}`;
+                                        if (!finalAccountName.endsWith(shopCodeSuffix)) {
+                                            finalAccountName = `${finalAccountName}${shopCodeSuffix}`;
+                                        }
+                                    }
+
                                     const newAccount = onAddAccount({
-                                        name: newPartyName.trim(),
+                                        name: finalAccountName,
                                         type: AccountType.SUPPLIER,
                                         parentId: parentAccount.id,
                                         accountCode: `${parentAccount.accountCode}-${Date.now().toString().slice(-6)}`,

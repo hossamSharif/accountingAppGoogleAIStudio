@@ -96,8 +96,9 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
             // Get user's shop ID
             const shopId = currentUser.role === 'admin' ? null : currentUser.shopId;
 
-            // Listen to shops (for admin only)
+            // Listen to shops
             if (currentUser.role === 'admin') {
+                // Admin can see all shops
                 const shopsUnsubscribe = onSnapshot(
                     query(collection(db, 'shops'), orderBy('name')),
                     (snapshot) => {
@@ -109,6 +110,21 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                     },
                     (error) => {
                         console.error('Error listening to shops:', error);
+                    }
+                );
+                unsubscribers.push(shopsUnsubscribe);
+            } else if (currentUser.shopId) {
+                // Non-admin users: fetch their own shop
+                const shopDocRef = doc(db, 'shops', currentUser.shopId);
+                const shopsUnsubscribe = onSnapshot(
+                    shopDocRef,
+                    (snapshot) => {
+                        if (snapshot.exists()) {
+                            setShops([{ id: snapshot.id, ...snapshot.data() } as Shop]);
+                        }
+                    },
+                    (error) => {
+                        console.error('Error listening to user shop:', error);
                     }
                 );
                 unsubscribers.push(shopsUnsubscribe);
@@ -182,6 +198,15 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
             if ('id' in accountData) {
                 // Update existing account
                 const { id, isActive, shopId, createdAt, ...updateData } = accountData;
+
+                // Check if non-admin is trying to update opening balance
+                if (currentUser.role !== 'admin' && updateData.openingBalance !== undefined) {
+                    const existingAccount = accounts.find(acc => acc.id === id);
+                    if (existingAccount && existingAccount.openingBalance !== updateData.openingBalance) {
+                        throw new Error(t('accounts.messages.openingBalanceAdminOnly'));
+                    }
+                }
+
                 await AccountService.updateAccount(id, updateData);
                 setSuccessMessage(t('accounts.messages.updated'));
             } else {
@@ -316,6 +341,27 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
         link.click();
         document.body.removeChild(link);
     };
+
+    // Determine current shop for account creation
+    const currentShop = useMemo(() => {
+        // If editing an account, use that account's shop
+        if (editingAccount) {
+            return shops.find(s => s.id === editingAccount.shopId) || null;
+        }
+
+        // For new accounts, use user's shop
+        if (currentUser?.shopId) {
+            return shops.find(s => s.id === currentUser.shopId) || null;
+        }
+
+        // If user has no shopId but we have accounts, use the first account's shop
+        if (accounts.length > 0) {
+            const firstAccountShopId = accounts[0].shopId;
+            return shops.find(s => s.id === firstAccountShopId) || null;
+        }
+
+        return null;
+    }, [editingAccount, currentUser, shops, accounts]);
 
     const filteredAccounts = useMemo(() => {
         let filtered = [...accounts];
@@ -525,6 +571,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                 accountToEdit={editingAccount}
                 accounts={accounts}
                 currentUser={currentUser}
+                currentShop={currentShop}
             />
 
             {togglingStatusAccount && (

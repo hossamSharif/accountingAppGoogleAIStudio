@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Account, Transaction, Shop, TransactionType } from '../types';
+import { Account, Transaction, Shop, TransactionType, User } from '../types';
 import { formatCurrency } from '../utils/formatting';
 import { exportTableToPDFEnhanced } from '../utils/pdfExportEnhanced';
 import { useTranslation } from '../i18n/useTranslation';
@@ -11,13 +11,16 @@ interface StatementPageProps {
     accounts: Account[];
     transactions: Transaction[];
     activeShop: Shop | null;
+    shops: Shop[];
+    currentUser: User;
 }
 
-const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, activeShop }) => {
+const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, activeShop, shops, currentUser }) => {
     const { t, language } = useTranslation();
+    const [selectedShopId, setSelectedShopId] = useState<string>(activeShop?.id || '');
     const [selectedAccountId, setSelectedAccountId] = useState<string>('');
     const [filterType, setFilterType] = useState<'range' | 'day'>('range');
-    
+
     const today = new Date();
     const monthAgo = new Date(new Date().setMonth(today.getMonth() - 1));
 
@@ -25,20 +28,32 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
     const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]);
     const [singleDate, setSingleDate] = useState(today.toISOString().split('T')[0]);
 
+    // Filter accounts by selected shop
+    const filteredAccounts = useMemo(() => {
+        if (!selectedShopId) return accounts; // Show all accounts if no shop selected (admin viewing all shops)
+        return accounts.filter(a => a.shopId === selectedShopId);
+    }, [accounts, selectedShopId]);
+
+    // Filter transactions by selected shop
+    const filteredTransactions = useMemo(() => {
+        if (!selectedShopId) return transactions; // Show all transactions if no shop selected
+        return transactions.filter(t => t.shopId === selectedShopId);
+    }, [transactions, selectedShopId]);
+
     const accountOptions = useMemo(() => {
-        const parentAccounts = accounts.filter(a => !a.parentId).sort((a,b) => a.name.localeCompare(b.name));
+        const parentAccounts = filteredAccounts.filter(a => !a.parentId).sort((a,b) => a.name.localeCompare(b.name));
         // Fix: Changed JSX.Element to React.ReactElement to resolve namespace issue.
         const options: React.ReactElement[] = [];
         parentAccounts.forEach(parent => {
             const parentName = getBilingualText(parent.name, parent.nameEn, language);
             options.push(<option key={parent.id} value={parent.id} className="font-bold">{parentName}</option>);
-            accounts.filter(a => a.parentId === parent.id).sort((a,b) => a.name.localeCompare(b.name)).forEach(child => {
+            filteredAccounts.filter(a => a.parentId === parent.id).sort((a,b) => a.name.localeCompare(b.name)).forEach(child => {
                 const childName = getBilingualText(child.name, child.nameEn, language);
                 options.push(<option key={child.id} value={child.id}>&nbsp;&nbsp;&nbsp;{childName}</option>);
             });
         });
         return options;
-    }, [accounts, language]);
+    }, [filteredAccounts, language]);
 
     const statementData = useMemo(() => {
         if (!selectedAccountId) return null;
@@ -50,17 +65,17 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
 
         // Find all child accounts if a parent is selected
         const getChildAccountIds = (parentId: string): string[] => {
-            const children = accounts.filter(a => a.parentId === parentId);
+            const children = filteredAccounts.filter(a => a.parentId === parentId);
             return [parentId, ...children.flatMap(c => getChildAccountIds(c.id))];
         };
         const targetAccountIds = new Set(getChildAccountIds(selectedAccountId));
 
-        const relevantTransactions = transactions.filter(t => 
+        const relevantTransactions = filteredTransactions.filter(t =>
             t.entries.some(e => targetAccountIds.has(e.accountId))
         ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         let openingBalance = 0;
-        accounts.forEach(acc => {
+        filteredAccounts.forEach(acc => {
             if (targetAccountIds.has(acc.id)) {
                 openingBalance += acc.openingBalance || 0;
             }
@@ -82,46 +97,46 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
         let runningBalance = openingBalance;
 
         const getAccountName = (id: string) => {
-            const account = accounts.find(a => a.id === id);
+            const account = filteredAccounts.find(a => a.id === id);
             return account ? getBilingualText(account.name, account.nameEn, language) : t('statements.unknown');
         };
 
-        const rows = relevantTransactions.filter(t => {
-            const tDate = new Date(t.date);
+        const rows = relevantTransactions.filter(transaction => {
+            const tDate = new Date(transaction.date);
             return tDate >= rangeStart && tDate <= rangeEnd;
-        }).map(t => {
+        }).map(transaction => {
             let debit = 0;
             let credit = 0;
 
-            const entryForThisAccount = t.entries.find(e => targetAccountIds.has(e.accountId));
+            const entryForThisAccount = transaction.entries.find(e => targetAccountIds.has(e.accountId));
             const amount = entryForThisAccount ? entryForThisAccount.amount : 0;
-            
+
             if (amount > 0) debit = amount;
             else credit = -amount;
-            
+
             totalDebit += debit;
             totalCredit += credit;
             runningBalance += (debit - credit);
 
-            let context = tx.description;
-            if (tx.type === TransactionType.TRANSFER) {
-                const fromAccId = tx.entries.find(e => e.amount < 0)?.accountId;
-                const toAccId = tx.entries.find(e => e.amount > 0)?.accountId;
+            let context = transaction.description;
+            if (transaction.type === TransactionType.TRANSFER) {
+                const fromAccId = transaction.entries.find(e => e.amount < 0)?.accountId;
+                const toAccId = transaction.entries.find(e => e.amount > 0)?.accountId;
                 if (fromAccId === selectedAccountId) { // We are the 'from'
                     context = t('statements.transfer.to', { account: getAccountName(toAccId!) });
                 } else { // We are the 'to'
                     context = t('statements.transfer.from', { account: getAccountName(fromAccId!) });
                 }
             } else {
-                 const otherPartyId = tx.partyId || tx.categoryId;
+                 const otherPartyId = transaction.partyId || transaction.categoryId;
                  if (otherPartyId && otherPartyId !== selectedAccountId) {
-                    context = `${tx.type} / ${getAccountName(otherPartyId)} - ${tx.description}`;
+                    context = `${transaction.type} / ${getAccountName(otherPartyId)} - ${transaction.description}`;
                  }
             }
 
             return {
-                id: tx.id,
-                date: new Date(tx.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US'),
+                id: transaction.id,
+                date: new Date(transaction.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US'),
                 context,
                 debit,
                 credit,
@@ -133,13 +148,13 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
 
         return { openingBalance, rows, totalDebit, totalCredit, closingBalance };
 
-    }, [selectedAccountId, filterType, singleDate, startDate, endDate, accounts, transactions, language, t]);
+    }, [selectedAccountId, filterType, singleDate, startDate, endDate, filteredAccounts, filteredTransactions, language, t]);
 
     const handleExportPDF = async () => {
         if (!statementData || !selectedAccountId) return;
 
         try {
-            const account = accounts.find(a => a.id === selectedAccountId);
+            const account = filteredAccounts.find(a => a.id === selectedAccountId);
             const accountName = account ? getBilingualText(account.name, account.nameEn, language) : '';
 
             // Prepare headers based on language
@@ -167,9 +182,12 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                 ? new Date(singleDate).toLocaleDateString(locale)
                 : `${t('statements.dateLabels.from')} ${new Date(startDate).toLocaleDateString(locale)} ${t('statements.dateLabels.to')} ${new Date(endDate).toLocaleDateString(locale)}`;
 
+            // Get the selected shop for export
+            const selectedShop = selectedShopId ? shops.find(s => s.id === selectedShopId) : null;
+
             // Subtitle
-            const shopName = activeShop ? getBilingualText(activeShop.name, activeShop.nameEn, language) : '';
-            const subtitle = activeShop ? `${shopName} - ${dateRange}` : dateRange;
+            const shopName = selectedShop ? getBilingualText(selectedShop.name, selectedShop.nameEn, language) : (currentUser.role === 'admin' && !selectedShopId ? t('statements.allShops') : '');
+            const subtitle = shopName ? `${shopName} - ${dateRange}` : dateRange;
 
             // Summary data
             const summary = [
@@ -208,6 +226,28 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                     </button>
                 )}
             </div>
+
+            {/* Shop Selector for Admin */}
+            {currentUser.role === 'admin' && shops.length > 0 && (
+                <div className="bg-surface p-4 rounded-lg shadow-md mb-6">
+                    <label className="text-sm text-text-secondary block mb-1">{t('statements.selectShop')}</label>
+                    <select
+                        value={selectedShopId}
+                        onChange={e => {
+                            setSelectedShopId(e.target.value);
+                            setSelectedAccountId(''); // Reset account selection when shop changes
+                        }}
+                        className="w-full bg-background border border-gray-600 rounded-lg py-2 px-4 focus:ring-primary focus:border-primary"
+                    >
+                        <option value="">{t('statements.allShops')}</option>
+                        {shops.filter(s => s.isActive).map(shop => (
+                            <option key={shop.id} value={shop.id}>
+                                {getBilingualText(shop.name, shop.nameEn, language)}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             <div className="bg-surface p-4 rounded-lg shadow-md flex gap-4 flex-wrap items-end">
                 <div className="flex-grow">

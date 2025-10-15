@@ -179,6 +179,10 @@ export class AccountService extends BaseService {
                 updateData.description = accountData.description ? this.sanitizeString(accountData.description) : '';
             }
 
+            if (accountData.openingBalance !== undefined) {
+                updateData.openingBalance = accountData.openingBalance;
+            }
+
             if (Object.keys(updateData).length === 0) {
                 throw new Error('No valid data to update');
             }

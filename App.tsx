@@ -610,7 +610,7 @@ const AppContent: React.FC = () => {
             case Page.ACCOUNTS:
                 return <AccountsPage />;
             case Page.STATEMENT:
-                return <StatementPage accounts={shopData.accounts} transactions={shopData.transactions} activeShop={activeShop} />;
+                return <StatementPage accounts={accounts} transactions={transactions} activeShop={activeShop} shops={shops} currentUser={currentUser} />;
             case Page.TRANSACTIONS:
                 return <TransactionsPage user={currentUser} activeShop={activeShop} shops={shops} accounts={accounts} onNavigate={setPage} onAddLog={handleAddLog} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} financialYears={financialYears} onAddAccount={handleAddAccount} />;
             case Page.SETTINGS:

@@ -248,6 +248,21 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ transactions, a
         return accounts.find(a => a.id === accountId)?.name || t('transactions.context.unknown');
     };
 
+    const getPaymentMethod = (transaction: Transaction): string => {
+        const cashEntry = transaction.entries.find(e => {
+            const account = accounts.find(a => a.id === e.accountId);
+            return account?.type === AccountType.CASH;
+        });
+        const bankEntry = transaction.entries.find(e => {
+            const account = accounts.find(a => a.id === e.accountId);
+            return account?.type === AccountType.BANK;
+        });
+
+        if (cashEntry) return language === 'ar' ? 'نقدي' : 'Cash';
+        if (bankEntry) return language === 'ar' ? 'بنك' : 'Bank';
+        return '-';
+    };
+
     const getTransactionContextName = (transaction: Transaction) => {
         if (transaction.type === TransactionType.TRANSFER) {
             const fromAccount = getAccountName(transaction.entries.find(e => e.amount < 0)?.accountId);
@@ -436,6 +451,7 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                             <th className="p-3">{t('transactions.list.columns.type')}</th>
                             <th className="p-3">{t('transactions.list.columns.context')}</th>
                             <th className="p-3">{t('transactions.list.columns.description')}</th>
+                            <th className="p-3">{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</th>
                             <th className="p-3 text-left">{t('transactions.list.columns.amount')}</th>
                             <th className="p-3 text-center">{t('transactions.list.columns.actions')}</th>
                         </tr>
@@ -450,7 +466,12 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                                     </span>
                                 </td>
                                 <td className="p-3 text-sm text-text-secondary">{getTransactionContextName(tx)}</td>
-                                <td className="p-3">{tx.description}</td>
+                                <td className="p-3 text-white">{tx.description}</td>
+                                <td className="p-3 text-center">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentMethod(tx) === (language === 'ar' ? 'نقدي' : 'Cash') ? 'bg-green-500/20 text-green-400' : getPaymentMethod(tx) === (language === 'ar' ? 'بنك' : 'Bank') ? 'bg-purple-500/20 text-purple-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                                        {getPaymentMethod(tx)}
+                                    </span>
+                                </td>
                                 <td className={`p-3 text-left font-mono font-bold ${tx.type === TransactionType.SALE ? 'text-green-400' : tx.type === TransactionType.TRANSFER ? 'text-blue-300' : 'text-red-400'}`}>
                                     {formatCurrency(tx.totalAmount)}
                                 </td>
@@ -474,7 +495,7 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                         ))}
                          {transactions.length === 0 && (
                             <tr>
-                                <td colSpan={6} className="text-center p-6 text-text-secondary">
+                                <td colSpan={7} className="text-center p-6 text-text-secondary">
                                     {t('transactions.list.empty')}
                                 </td>
                             </tr>

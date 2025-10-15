@@ -73,6 +73,9 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                 <td className="p-3 text-text-secondary">
                     {translateEnum(account.nature, accountNatureTranslations, language)}
                 </td>
+                <td className={`p-3 font-mono text-blue-400 ${isParent ? 'font-bold' : ''}`}>
+                    {formatCurrency(account.openingBalance || 0)}
+                </td>
                 <td className={`p-3 font-mono ${isParent ? 'font-bold text-accent' : 'text-gray-300'}`}>{formatCurrency(displayBalance)}</td>
                 <td className="p-3">
                     <span className={`px-2 py-1 text-xs rounded-full ${account.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
@@ -122,6 +125,7 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                             <th className="p-3">{t('accounts.table.columns.name')}</th>
                             <th className="p-3">{t('accounts.table.columns.classification')}</th>
                             <th className="p-3">{t('accounts.table.columns.nature')}</th>
+                            <th className="p-3">{t('accounts.table.columns.openingBalance')}</th>
                             <th className="p-3">{t('accounts.table.columns.balance')}</th>
                             <th className="p-3">{t('accounts.table.columns.status')}</th>
                             <th className="p-3 text-left">{t('accounts.table.columns.actions')}</th>
@@ -136,7 +140,7 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                         ))}
                          {accounts.length === 0 && (
                             <tr>
-                                <td colSpan={7} className="text-center p-6 text-text-secondary">
+                                <td colSpan={8} className="text-center p-6 text-text-secondary">
                                     {t('accounts.table.empty')}
                                 </td>
                             </tr>

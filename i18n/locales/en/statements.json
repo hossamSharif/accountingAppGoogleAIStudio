@@ -1,6 +1,9 @@
 {
   "title": "Account Statement",
   "subtitle": "View detailed account statement and transactions",
+  "selectShop": "Select Shop",
+  "selectShopPlaceholder": "-- Please select a shop --",
+  "allShops": "All Shops",
   "selectAccount": "Select Account",
   "selectAccountPlaceholder": "-- Please select an account --",
   "filterType": {

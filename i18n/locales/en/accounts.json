@@ -18,6 +18,7 @@
     "shop": "Shop",
     "nature": "Nature"
   },
+  "openingBalanceAdminOnly": "Admin only",
   "actions": {
     "create": "Add New Account",
     "createSub": "Create Sub-Account",
@@ -37,6 +38,7 @@
       "classification": "Classification",
       "nature": "Nature",
       "type": "Type",
+      "openingBalance": "Opening Balance",
       "balance": "Current Balance",
       "status": "Status",
       "actions": "Actions"
@@ -69,7 +71,8 @@
     "errorToggling": "An error occurred while changing account status",
     "errorDeleting": "An error occurred while deleting the account",
     "loginRequired": "You must login first",
-    "shopNotFound": "Shop ID not found"
+    "shopNotFound": "Shop ID not found",
+    "openingBalanceAdminOnly": "Only admin can edit opening balance"
   },
   "validation": {
     "nameRequired": "Account name is required",

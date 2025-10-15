@@ -13,7 +13,10 @@
     "cashBalance": "Cash Balance",
     "bankBalance": "Bank Balance",
     "daily": "Daily",
-    "total": "Total"
+    "total": "Total",
+    "accrual": "Total",
+    "cash": "Cash",
+    "dailyRevenue": "Daily Revenue"
   },
   "actions": {
     "addTransaction": "Add Transaction",

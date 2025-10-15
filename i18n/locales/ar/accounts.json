@@ -18,6 +18,7 @@
     "shop": "المتجر",
     "nature": "الطبيعة"
   },
+  "openingBalanceAdminOnly": "للمسؤول فقط",
   "actions": {
     "create": "إضافة حساب جديد",
     "createSub": "إنشاء حساب فرعي",
@@ -37,6 +38,7 @@
       "classification": "التصنيف",
       "nature": "الطبيعة",
       "type": "النوع",
+      "openingBalance": "الرصيد الافتتاحي",
       "balance": "الرصيد الحالي",
       "status": "الحالة",
       "actions": "الإجراءات"
@@ -69,7 +71,8 @@
     "errorToggling": "حدث خطأ أثناء تغيير حالة الحساب",
     "errorDeleting": "حدث خطأ أثناء حذف الحساب",
     "loginRequired": "يجب تسجيل الدخول أولاً",
-    "shopNotFound": "لم يتم العثور على معرف المتجر"
+    "shopNotFound": "لم يتم العثور على معرف المتجر",
+    "openingBalanceAdminOnly": "فقط المسؤول يمكنه تعديل الرصيد الافتتاحي"
   },
   "validation": {
     "nameRequired": "اسم الحساب مطلوب",

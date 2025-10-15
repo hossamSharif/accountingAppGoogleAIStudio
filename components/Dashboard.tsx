@@ -48,6 +48,14 @@ const DateNavigator: React.FC<{selectedDate: Date, setSelectedDate: (date: Date)
     today.setHours(23, 59, 59, 999); // Compare with end of today
     const isFuture = selectedDate >= today;
 
+    // Helper function to format date in YYYY-MM-DD using local timezone
+    const formatDateForInput = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const handleDateChange = (days: number) => {
         const newDate = new Date(selectedDate);
         newDate.setDate(newDate.getDate() + days);
@@ -55,10 +63,10 @@ const DateNavigator: React.FC<{selectedDate: Date, setSelectedDate: (date: Date)
     };
 
     const handleDateSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newDate = new Date(e.target.value);
-        // The input provides date in local timezone, adjust for UTC offset to avoid day-off errors
-        const userTimezoneOffset = newDate.getTimezoneOffset() * 60000;
-        setSelectedDate(new Date(newDate.getTime() + userTimezoneOffset));
+        // Parse the date string as local date (YYYY-MM-DD format)
+        const [year, month, day] = e.target.value.split('-').map(Number);
+        const newDate = new Date(year, month - 1, day);
+        setSelectedDate(newDate);
     };
 
     const locale = language === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US';
@@ -74,9 +82,9 @@ const DateNavigator: React.FC<{selectedDate: Date, setSelectedDate: (date: Date)
                  <h3 className="font-bold hidden md:block">{selectedDate.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
                 <input
                     type="date"
-                    value={selectedDate.toISOString().split('T')[0]}
+                    value={formatDateForInput(selectedDate)}
                     onChange={handleDateSelect}
-                    max={new Date().toISOString().split('T')[0]}
+                    max={formatDateForInput(new Date())}
                     className="bg-background border border-gray-600 rounded-md p-2 text-center text-text-primary"
                     style={{colorScheme: 'dark'}}
                 />
@@ -149,7 +157,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransactions, ac
     // The 'transactions' prop now comes pre-filtered for the selected date from App.tsx
     const dailyTransactions = transactions;
 
-    // Real-time balance calculation from ALL transactions using double-entry accounting
+    // Real-time balance calculation from financial year start to selected date using double-entry accounting
     const { totalCashBalance, totalBankBalance } = useMemo(() => {
         const cashAccounts = accounts.filter(a => a.type === AccountType.CASH);
         const bankAccounts = accounts.filter(a => a.type === AccountType.BANK);
@@ -166,8 +174,20 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransactions, ac
             bank += acc.openingBalance || 0;
         });
 
-        // Process ALL transactions to calculate current balance
-        allTransactions.forEach(transaction => {
+        // Filter transactions from financial year start to selected date
+        const selectedDateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const filteredTransactions = allTransactions.filter(transaction => {
+            if (openFinancialYear) {
+                // Only include transactions within financial year period and up to selected date
+                return transaction.date >= openFinancialYear.startDate &&
+                       transaction.date <= selectedDateStr;
+            }
+            // Fallback: if no FY is open, include transactions up to selected date
+            return transaction.date <= selectedDateStr;
+        });
+
+        // Process filtered transactions to calculate balance
+        filteredTransactions.forEach(transaction => {
             transaction.entries?.forEach(entry => {
                 const account = accounts.find(a => a.id === entry.accountId);
                 if (account) {
@@ -187,12 +207,38 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransactions, ac
         setBalancesCache({ cash, bank });
 
         return { totalCashBalance: cash, totalBankBalance: bank };
-    }, [accounts, allTransactions]);
+    }, [accounts, allTransactions, selectedDate, openFinancialYear]);
 
+    // Accrual-basis calculations (full invoice amounts)
     const totalSales = dailyTransactions.filter(t => t.type === TransactionType.SALE).reduce((sum, t) => sum + t.totalAmount, 0);
     const totalPurchases = dailyTransactions.filter(t => t.type === TransactionType.PURCHASE).reduce((sum, t) => sum + t.totalAmount, 0);
     const totalExpenses = dailyTransactions.filter(t => t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.totalAmount, 0);
-    const profit = totalSales - totalPurchases - totalExpenses;
+    const accrualProfit = totalSales - totalPurchases - totalExpenses;
+
+    // Cash-basis calculations (only actual cash/bank payments)
+    const cashAccountIds = new Set(accounts.filter(a => a.type === AccountType.CASH || a.type === AccountType.BANK).map(a => a.id));
+
+    // Calculate cash received from sales (debits to cash/bank accounts in SALE transactions)
+    const cashSales = dailyTransactions
+        .filter(t => t.type === TransactionType.SALE)
+        .reduce((sum, t) => {
+            const cashEntries = t.entries?.filter(e => cashAccountIds.has(e.accountId) && e.amount > 0) || [];
+            return sum + cashEntries.reduce((entrySum, e) => entrySum + e.amount, 0);
+        }, 0);
+
+    // Calculate cash paid for purchases (credits to cash/bank accounts in PURCHASE transactions)
+    const cashPurchases = dailyTransactions
+        .filter(t => t.type === TransactionType.PURCHASE)
+        .reduce((sum, t) => {
+            const cashEntries = t.entries?.filter(e => cashAccountIds.has(e.accountId) && e.amount < 0) || [];
+            return sum + Math.abs(cashEntries.reduce((entrySum, e) => entrySum + e.amount, 0));
+        }, 0);
+
+    // Expenses are always fully paid in cash
+    const cashExpenses = totalExpenses;
+
+    // Cash profit = cash received - cash paid
+    const cashProfit = cashSales - cashPurchases - cashExpenses;
 
     const handleShopChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         if (!shops || !onSelectShop) return;
@@ -305,7 +351,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransactions, ac
                     <StatCard title={`${t('dashboard.stats.expenses')} ${t('dashboard.stats.daily')}`} value={formatCurrency(totalExpenses)} icon={<CreditCardIcon />} />
                 </div>
                 <div className="flex-shrink-0 w-72">
-                    <StatCard title={`${profit >= 0 ? t('dashboard.stats.profit') : t('dashboard.stats.loss')} ${t('dashboard.stats.daily')}`} value={formatCurrency(Math.abs(profit))} icon={<ProfitIcon />} />
+                    <StatCard title={t('dashboard.stats.dailyRevenue')} value={formatCurrency(Math.abs(cashProfit))} icon={<ProfitIcon />} />
                 </div>
             </div>
             <style>{`

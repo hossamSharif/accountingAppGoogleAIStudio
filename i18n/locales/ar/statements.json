@@ -1,6 +1,9 @@
 {
   "title": "كشف حساب",
   "subtitle": "عرض كشف حساب مفصل والمعاملات",
+  "selectShop": "اختر المتجر",
+  "selectShopPlaceholder": "-- الرجاء اختيار متجر --",
+  "allShops": "جميع المتاجر",
   "selectAccount": "اختر الحساب",
   "selectAccountPlaceholder": "-- الرجاء اختيار حساب --",
   "filterType": {
