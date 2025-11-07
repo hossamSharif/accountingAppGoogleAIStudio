@@ -23,6 +23,16 @@ import {
 } from '../types';
 import { formatCurrency, formatNumber } from '../utils/formatting';
 
+// Helper function to normalize date to YYYY-MM-DD format
+const normalizeDateString = (dateStr: string): string => {
+    if (dateStr.includes('T')) {
+        // Old ISO format: extract date part
+        return dateStr.split('T')[0];
+    }
+    // Already in YYYY-MM-DD format
+    return dateStr;
+};
+
 export class TransactionValidator extends BaseService {
 
     /**
@@ -87,18 +97,19 @@ export class TransactionValidator extends BaseService {
                 errors.push('لا يمكن إنشاء معاملات في سنة مالية مغلقة');
             }
 
-            // Validate transaction date within financial year range
-            const transactionDate = new Date(transaction.date);
-            const startDate = new Date(financialYear.startDate);
-            const endDate = new Date(financialYear.endDate);
+            // Validate transaction date within financial year range using string comparison
+            const transactionDateStr = normalizeDateString(transaction.date);
+            const startDateStr = normalizeDateString(financialYear.startDate);
+            const endDateStr = normalizeDateString(financialYear.endDate);
 
-            if (transactionDate < startDate || transactionDate > endDate) {
-                errors.push(`تاريخ المعاملة (${transaction.date}) خارج نطاق السنة المالية (${financialYear.startDate} - ${financialYear.endDate})`);
+            if (transactionDateStr < startDateStr || transactionDateStr > endDateStr) {
+                errors.push(`تاريخ المعاملة (${transactionDateStr}) خارج نطاق السنة المالية (${startDateStr} - ${endDateStr})`);
             }
 
             // Check for future dates
-            const currentDate = new Date();
-            if (transactionDate > currentDate) {
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            if (transactionDateStr > todayStr) {
                 warnings.push('تاريخ المعاملة في المستقبل');
             }
 
@@ -231,6 +242,15 @@ export class TransactionValidator extends BaseService {
                     continue;
                 }
 
+                // HIERARCHY VALIDATION: Check if expense account is a leaf (no children)
+                if (account.type === AccountType.EXPENSES) {
+                    const hasChildren = await this.hasChildAccounts(account.id, account.shopId);
+                    if (hasChildren) {
+                        errors.push(`لا يمكن تسجيل قيد على حساب المصروفات "${account.name}" لأنه يحتوي على حسابات فرعية. يجب التسجيل على الحساب الفرعي المحدد`);
+                        continue;
+                    }
+                }
+
                 // Validate account type usage based on transaction type
                 const typeValidation = this.validateAccountTypeUsage(account, entry, transaction.type);
                 if (!typeValidation.isValid) {
@@ -271,21 +291,22 @@ export class TransactionValidator extends BaseService {
                 return { isValid: false, errors, warnings };
             }
 
-            // Check if transaction date falls within financial year
-            const transactionDate = new Date(transaction.date);
-            const fyStartDate = new Date(activeFinancialYear.startDate);
-            const fyEndDate = new Date(activeFinancialYear.endDate);
+            // Check if transaction date falls within financial year using string comparison
+            const transactionDateStr = normalizeDateString(transaction.date);
+            const fyStartDateStr = normalizeDateString(activeFinancialYear.startDate);
+            const fyEndDateStr = normalizeDateString(activeFinancialYear.endDate);
 
-            if (transactionDate < fyStartDate || transactionDate > fyEndDate) {
-                errors.push(`تاريخ المعاملة خارج نطاق السنة المالية النشطة (${activeFinancialYear.startDate} - ${activeFinancialYear.endDate})`);
+            if (transactionDateStr < fyStartDateStr || transactionDateStr > fyEndDateStr) {
+                errors.push(`تاريخ المعاملة خارج نطاق السنة المالية النشطة (${fyStartDateStr} - ${fyEndDateStr})`);
             }
 
-            // Check for period-end restrictions
-            const endOfYear = new Date(fyEndDate);
-            const restrictionPeriod = new Date(endOfYear);
-            restrictionPeriod.setDate(restrictionPeriod.getDate() - 30); // Last 30 days
+            // Check for period-end restrictions (last 30 days of financial year)
+            const fyEndDate = new Date(fyEndDateStr);
+            const restrictionPeriod = new Date(fyEndDate);
+            restrictionPeriod.setDate(restrictionPeriod.getDate() - 30);
+            const restrictionDateStr = `${restrictionPeriod.getFullYear()}-${String(restrictionPeriod.getMonth() + 1).padStart(2, '0')}-${String(restrictionPeriod.getDate()).padStart(2, '0')}`;
 
-            if (transactionDate > restrictionPeriod && transactionDate <= endOfYear) {
+            if (transactionDateStr > restrictionDateStr && transactionDateStr <= fyEndDateStr) {
                 warnings.push('المعاملة في فترة قريبة من نهاية السنة المالية - تأكد من صحة التاريخ');
             }
 
@@ -322,8 +343,12 @@ export class TransactionValidator extends BaseService {
                     // Check if used only at beginning of financial year
                     const financialYear = await FinancialYearService.getCurrentFinancialYear(transaction.shopId);
                     if (financialYear) {
-                        const transactionDate = new Date(transaction.date);
-                        const fyStartDate = new Date(financialYear.startDate);
+                        // Normalize dates to YYYY-MM-DD and parse to Date objects for calculation
+                        const transactionDateStr = normalizeDateString(transaction.date);
+                        const fyStartDateStr = normalizeDateString(financialYear.startDate);
+
+                        const transactionDate = new Date(transactionDateStr + 'T00:00:00');
+                        const fyStartDate = new Date(fyStartDateStr + 'T00:00:00');
                         const gracePeriod = 30; // 30 days grace period
 
                         const daysDifference = Math.floor((transactionDate.getTime() - fyStartDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -587,5 +612,25 @@ export class TransactionValidator extends BaseService {
         }
 
         return null;
+    }
+
+    /**
+     * Check if an account has child accounts
+     */
+    private static async hasChildAccounts(accountId: string, shopId: string): Promise<boolean> {
+        try {
+            const childrenQuery = query(
+                this.getCollectionRef('accounts'),
+                where('parentId', '==', accountId),
+                where('shopId', '==', shopId)
+            );
+
+            const snapshot = await getDocs(childrenQuery);
+            return !snapshot.empty;
+
+        } catch (error) {
+            console.error('Error checking child accounts:', error);
+            return false;
+        }
     }
 }

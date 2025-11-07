@@ -10,7 +10,9 @@
     "migrate-purchases": "tsx migratePurchaseAccounts.ts",
     "rename-accounts": "node renameAccountsWithShopSuffix.js",
     "rename-accounts-ts": "tsx renameAccountsWithShopName.ts",
-    "test-rename": "node testRenameAccounts.js"
+    "test-rename": "node testRenameAccounts.js",
+    "backup": "tsx scripts/backupFirebase.ts",
+    "migrate-dates": "tsx scripts/migrateDates.ts"
   },
   "dependencies": {
     "canvg": "^4.0.3",

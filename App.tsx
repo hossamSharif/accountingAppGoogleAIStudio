@@ -35,9 +35,18 @@ import { LoggingService } from './services/loggingService';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import NotificationPermissionPrompt from './components/NotificationPermissionPrompt';
 import { I18nProvider, useI18n } from './i18n/i18nContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { OfflineManager } from './services/offlineManager';
 import { SyncService } from './services/syncService';
 import { useConnectionStatus } from './hooks/useConnectionStatus';
+
+// Utility function to format date as YYYY-MM-DD (date-only string)
+const formatDateOnly = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 const AppContent: React.FC = () => {
     const { t } = useI18n();
@@ -123,11 +132,8 @@ const AppContent: React.FC = () => {
             return;
         }
 
-        const startOfDay = new Date(selectedDate);
-        startOfDay.setHours(0, 0, 0, 0);
-
-        const endOfDay = new Date(selectedDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        // Format selected date as YYYY-MM-DD for comparison
+        const selectedDateStr = formatDateOnly(selectedDate);
 
         const q = query(
             collection(db, 'transactions'),
@@ -136,10 +142,13 @@ const AppContent: React.FC = () => {
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Transaction[];
-            // Filter by date manually to avoid index requirement
+            // Filter by date string comparison
             const filteredData = data.filter(transaction => {
-                const transactionDate = new Date(transaction.date);
-                return transactionDate >= startOfDay && transactionDate <= endOfDay;
+                // Handle both old ISO format and new date-only format
+                const transactionDateStr = transaction.date.includes('T')
+                    ? formatDateOnly(new Date(transaction.date))  // Old format: convert ISO to date-only
+                    : transaction.date;  // New format: already date-only
+                return transactionDateStr === selectedDateStr;
             });
             setDailyTransactions(filteredData);
         }, (error) => {
@@ -369,7 +378,7 @@ const AppContent: React.FC = () => {
     
     const handleAddTransaction = async (transaction: Omit<Transaction, 'id' | 'shopId' | 'date'>) => {
         if (!activeShop || !currentUser) return;
-        const newTransaction = { ...transaction, shopId: activeShop.id, date: selectedDate.toISOString() };
+        const newTransaction = { ...transaction, shopId: activeShop.id, date: formatDateOnly(selectedDate) };
         const docRef = await addDoc(collection(db, 'transactions'), newTransaction);
 
         // Log and notify admins with detailed information
@@ -656,9 +665,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
     return (
-        <I18nProvider>
-            <AppContent />
-        </I18nProvider>
+        <ThemeProvider>
+            <I18nProvider>
+                <AppContent />
+            </I18nProvider>
+        </ThemeProvider>
     );
 };
 

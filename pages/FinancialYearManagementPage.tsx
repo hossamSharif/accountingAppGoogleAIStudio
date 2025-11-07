@@ -6,6 +6,7 @@ import { useLoading } from '../hooks/useLoading';
 import { useToast } from '../hooks/useToast';
 import { FinancialYearSelector } from '../components/FinancialYearSelector';
 import ConfirmationModal from '../components/ConfirmationModal';
+import MobileSelect from '../components/MobileSelect';
 import {
     FinancialYear,
     Shop,
@@ -153,21 +154,20 @@ const FinancialYearModal: React.FC<FinancialYearModalProps> = ({
                 <form onSubmit={handleSubmit} className="p-6 space-y-4 bg-background">
                     {/* Shop Selection */}
                     <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">
-                            {t('shops.form.name')} *
-                        </label>
-                        <select
+                        <MobileSelect
+                            label={`${t('shops.form.name')} *`}
                             value={formData.shopId}
-                            onChange={(e) => setFormData(prev => ({ ...prev, shopId: e.target.value }))}
-                            className={`w-full bg-background border rounded-md p-3 text-text-primary focus:ring-2 focus:ring-primary focus:border-primary ${
-                                errors.shopId ? 'border-red-500' : 'border-gray-600'
-                            }`}
-                        >
-                            <option value="">{t('shops.form.selectShop')}</option>
-                            {shops.map(shop => (
-                                <option key={shop.id} value={shop.id}>{getBilingualText(shop.name, shop.nameEn, language)}</option>
-                            ))}
-                        </select>
+                            onChange={(value) => setFormData(prev => ({ ...prev, shopId: value }))}
+                            placeholder={t('shops.form.selectShop')}
+                            options={[
+                                { value: '', label: t('shops.form.selectShop') },
+                                ...shops.map(shop => ({
+                                    value: shop.id,
+                                    label: getBilingualText(shop.name, shop.nameEn, language)
+                                }))
+                            ]}
+                            className={errors.shopId ? 'border-red-500' : ''}
+                        />
                         {errors.shopId && <p className="text-red-500 text-sm mt-1">{errors.shopId}</p>}
                     </div>
 
@@ -577,16 +577,17 @@ export const FinancialYearManagementPage: React.FC = () => {
                     <label className="text-sm font-medium text-text-secondary">
                         {language === 'ar' ? 'تصفية حسب المتجر:' : 'Filter by shop:'}
                     </label>
-                    <select
+                    <MobileSelect
                         value={selectedShopFilter}
-                        onChange={(e) => setSelectedShopFilter(e.target.value)}
-                        className="bg-background border border-gray-600 rounded-md p-2 text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-                    >
-                        <option value="all">{language === 'ar' ? 'جميع المتاجر' : 'All Shops'}</option>
-                        {shops.map(shop => (
-                            <option key={shop.id} value={shop.id}>{getBilingualText(shop.name, shop.nameEn, language)}</option>
-                        ))}
-                    </select>
+                        onChange={(value) => setSelectedShopFilter(value)}
+                        options={[
+                            { value: 'all', label: language === 'ar' ? 'جميع المتاجر' : 'All Shops' },
+                            ...shops.map(shop => ({
+                                value: shop.id,
+                                label: getBilingualText(shop.name, shop.nameEn, language)
+                            }))
+                        ]}
+                    />
                     <span className="text-sm text-text-secondary">
                         ({filteredFinancialYears.length} {language === 'ar' ? 'من' : 'of'} {financialYears.length} {language === 'ar' ? 'سنة مالية' : 'financial years'})
                     </span>

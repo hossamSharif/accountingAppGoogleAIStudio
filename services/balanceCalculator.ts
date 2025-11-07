@@ -88,6 +88,85 @@ export class BalanceCalculator extends BaseService {
     }
 
     /**
+     * Calculate account balance including all child accounts (hierarchy-aware)
+     * For EXPENSE accounts with 3-level hierarchy, this aggregates leaf account balances to parents
+     */
+    static async calculateAccountBalanceWithChildren(
+        accountId: string,
+        financialYearId: string,
+        asOfDate?: string
+    ): Promise<number> {
+        try {
+            const account = await this.getDocumentById<Account>('accounts', accountId);
+            if (!account) {
+                throw new Error(`الحساب غير موجود: ${accountId}`);
+            }
+
+            // Check if account has children
+            const hasChildren = await AccountService.hasChildAccounts(accountId, account.shopId);
+
+            if (!hasChildren) {
+                // Leaf account - return direct balance
+                return await this.calculateAccountBalanceForFY(accountId, financialYearId, asOfDate);
+            }
+
+            // Parent account - sum all leaf descendants only (no double-counting)
+            const leafDescendants = await this.getLeafDescendants(accountId, account.shopId);
+            let totalBalance = 0;
+
+            for (const leafAccount of leafDescendants) {
+                const balance = await this.calculateAccountBalanceForFY(leafAccount.id, financialYearId, asOfDate);
+                totalBalance += balance;
+            }
+
+            return totalBalance;
+
+        } catch (error) {
+            this.handleError(error, 'calculateAccountBalanceWithChildren');
+        }
+    }
+
+    /**
+     * Get all leaf descendant accounts (accounts with no children) recursively
+     */
+    private static async getLeafDescendants(parentId: string, shopId: string): Promise<Account[]> {
+        try {
+            const leafAccounts: Account[] = [];
+
+            // Get direct children
+            const childrenQuery = query(
+                this.getCollectionRef('accounts'),
+                where('parentId', '==', parentId),
+                where('shopId', '==', shopId),
+                where('isActive', '==', true)
+            );
+
+            const childrenSnapshot = await getDocs(childrenQuery);
+            const children = childrenSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Account));
+
+            // For each child, check if it's a leaf or has children
+            for (const child of children) {
+                const hasChildren = await AccountService.hasChildAccounts(child.id, shopId);
+
+                if (!hasChildren) {
+                    // This is a leaf account
+                    leafAccounts.push(child);
+                } else {
+                    // This has children, recurse deeper
+                    const childLeaves = await this.getLeafDescendants(child.id, shopId);
+                    leafAccounts.push(...childLeaves);
+                }
+            }
+
+            return leafAccounts;
+
+        } catch (error) {
+            console.error('Error getting leaf descendants:', error);
+            return [];
+        }
+    }
+
+    /**
      * Calculate multi-dimensional profit matrix with comprehensive analysis
      */
     static async calculateProfitMatrix(
@@ -436,14 +515,22 @@ export class BalanceCalculator extends BaseService {
 
     /**
      * Calculate total expenses for shop and financial year
+     * UPDATED: Only sums leaf expense accounts to prevent double-counting in 3-level hierarchy
      */
     private static async calculateTotalExpenses(shopId: string, financialYearId: string): Promise<number> {
         const expenseAccounts = await this.getAccountsByType(shopId, AccountType.EXPENSES);
         let total = 0;
 
         for (const account of expenseAccounts) {
-            const balance = await this.calculateAccountBalanceForFY(account.id, financialYearId);
-            total += balance; // Expenses are debit nature
+            // Only include leaf accounts (accounts with no children) to prevent double-counting
+            const hasChildren = await AccountService.hasChildAccounts(account.id, shopId);
+
+            if (!hasChildren) {
+                // This is a leaf account - include its balance
+                const balance = await this.calculateAccountBalanceForFY(account.id, financialYearId);
+                total += balance; // Expenses are debit nature
+            }
+            // Skip parent accounts - their balances will be aggregated from children
         }
 
         return total;

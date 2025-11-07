@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Account, Transaction, AccountType, TransactionType, Shop, FinancialYear } from '../types';
 import { BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import StatCard from '../components/StatCard';
+import MobileSelect from '../components/MobileSelect';
 import { formatCurrency, formatNumber } from '../utils/formatting';
 import { useTranslation } from '../i18n/useTranslation';
 import { getBilingualText } from '../utils/bilingual';
@@ -279,33 +280,35 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
             </div>
 
             {/* Filters */}
-            <div className="bg-surface p-2 rounded-lg shadow-md flex gap-2 flex-wrap items-end">
-                 <div className="flex-grow">
-                    <label className="text-xs text-text-secondary block mb-1">{t('analytics.filters.shop')}</label>
-                    <select
+            <div className="bg-surface p-4 rounded-lg shadow-md flex gap-4 flex-wrap items-end">
+                 <div className="flex-1 min-w-[200px]">
+                    <MobileSelect
+                        label={t('analytics.filters.shop')}
                         value={selectedShopId}
-                        onChange={(e) => setSelectedShopId(e.target.value)}
-                        className="bg-background border border-gray-600 rounded-lg py-1.5 px-3 text-sm w-full md:w-auto"
-                    >
-                        <option value="all">{t('analytics.filters.allShops')}</option>
-                        {shops.map(shop => (
-                            <option key={shop.id} value={shop.id}>{getBilingualText(shop.name, shop.nameEn, language)}</option>
-                        ))}
-                    </select>
+                        onChange={(value) => setSelectedShopId(value)}
+                        options={[
+                            { value: 'all', label: t('analytics.filters.allShops') },
+                            ...shops.map(shop => ({
+                                value: shop.id,
+                                label: getBilingualText(shop.name, shop.nameEn, language)
+                            }))
+                        ]}
+                    />
                 </div>
-                 <div className="flex-grow">
-                    <label className="text-xs text-text-secondary block mb-1">{t('analytics.periods.financialYear')}</label>
-                    <select
+                 <div className="flex-1 min-w-[200px]">
+                    <MobileSelect
+                        label={t('analytics.periods.financialYear')}
                         value={selectedFyId}
-                        onChange={(e) => setSelectedFyId(e.target.value)}
-                        className="bg-background border border-gray-600 rounded-lg py-1.5 px-3 text-sm w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                        onChange={(value) => setSelectedFyId(value)}
                         disabled={selectedShopId === 'all'}
-                    >
-                        <option value="period">{t('analytics.filters.usePeriodFilters')}</option>
-                        {shopFinancialYears.map(fy => (
-                            <option key={fy.id} value={fy.id}>{fy.name} ({fy.status === 'open' ? t('common.status.open') : t('common.status.closed')})</option>
-                        ))}
-                    </select>
+                        options={[
+                            { value: 'period', label: t('analytics.filters.usePeriodFilters') },
+                            ...shopFinancialYears.map(fy => ({
+                                value: fy.id,
+                                label: `${fy.name} (${fy.status === 'open' ? t('common.status.open') : t('common.status.closed')})`
+                            }))
+                        ]}
+                    />
                 </div>
                 <div className={`flex bg-background rounded-lg border border-gray-600 p-1 ${selectedFyId !== 'period' ? 'opacity-50 pointer-events-none' : ''}`}>
                     {(Object.entries({

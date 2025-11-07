@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Shop } from '../types';
+import MobileSelect from './MobileSelect';
 
 interface UserModalProps {
     isOpen: boolean;
@@ -161,19 +162,16 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
                             />
                         </div>
                          <div>
-                            <label htmlFor="shopId" className="block text-sm font-medium text-text-secondary mb-1">المتجر المرتبط</label>
-                            <select
-                                id="shopId"
+                            <MobileSelect
+                                label="المتجر المرتبط"
                                 value={shopId}
-                                onChange={(e) => setShopId(e.target.value)}
-                                className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
-                                required
-                            >
-                                <option value="" disabled>-- اختر متجر --</option>
-                                {shops.map(shop => (
-                                    <option key={shop.id} value={shop.id}>{shop.name}</option>
-                                ))}
-                            </select>
+                                onChange={(value) => setShopId(value)}
+                                placeholder="-- اختر متجر --"
+                                options={shops.map(shop => ({
+                                    value: shop.id,
+                                    label: shop.name
+                                }))}
+                            />
                         </div>
                          {error && <p className="text-red-500 text-sm text-center bg-red-500/10 p-2 rounded-md">{error}</p>}
                     </div>

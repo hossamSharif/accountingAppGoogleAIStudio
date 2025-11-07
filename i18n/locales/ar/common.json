@@ -112,5 +112,13 @@
     "user": "المستخدم",
     "shop": "المتجر",
     "selectShop": "اختر المتجر"
+  },
+  "theme": {
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "تلقائي",
+    "toggle": "تبديل المظهر",
+    "currentlyUsing": "المظهر الحالي",
+    "appearance": "المظهر"
   }
 }

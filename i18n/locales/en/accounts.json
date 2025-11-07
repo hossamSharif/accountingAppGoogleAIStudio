@@ -72,7 +72,8 @@
     "errorDeleting": "An error occurred while deleting the account",
     "loginRequired": "You must login first",
     "shopNotFound": "Shop ID not found",
-    "openingBalanceAdminOnly": "Only admin can edit opening balance"
+    "openingBalanceAdminOnly": "Only admin can edit opening balance",
+    "maxDepthReached": "Cannot create more than 3 levels of accounts"
   },
   "validation": {
     "nameRequired": "Account name is required",

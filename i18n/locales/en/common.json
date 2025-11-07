@@ -112,5 +112,13 @@
     "user": "User",
     "shop": "Shop",
     "selectShop": "Select Shop"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "toggle": "Toggle Theme",
+    "currentlyUsing": "Currently using",
+    "appearance": "Appearance"
   }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Shop, User, Page } from '../types';
 import LanguageSwitcher from './LanguageSwitcher';
+import ThemeToggle from './ThemeToggle';
 import { useTranslation } from '../i18n/useTranslation';
 import { getBilingualText } from '../utils/bilingual';
 
@@ -74,6 +75,9 @@ const Header: React.FC<HeaderProps> = ({ activeShop, currentUser, onLogout, shop
 
                 {/* Language Switcher - Available to all users */}
                 <LanguageSwitcher className="border border-gray-700" />
+
+                {/* Theme Toggle - Available to all users */}
+                <ThemeToggle />
             </div>
 
             {/* User Profile Section */}

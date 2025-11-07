@@ -4,6 +4,7 @@ import { formatCurrency, formatNumber } from '../utils/formatting';
 import { exportTableToPDFEnhanced } from '../utils/pdfExportEnhanced';
 import { useTranslation } from '../i18n/useTranslation';
 import { translateEnum, transactionTypeTranslations } from '../i18n/enumTranslations';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface RecentTransactionsProps {
     transactions: Transaction[]; // Daily transactions
@@ -233,6 +234,7 @@ const generatePDFReport = async (
 
 const RecentTransactions: React.FC<RecentTransactionsProps> = ({ transactions, allTransactions = [], accounts, onDelete, onStartEdit, activeShop, selectedDate, onAddLog, user }) => {
     const { t, language } = useTranslation();
+    const { resolvedTheme } = useTheme();
     const [deleteConfirmation, setDeleteConfirmation] = useState<{
         isOpen: boolean;
         transactionId: string | null;
@@ -421,7 +423,7 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
     };
 
     return (
-        <div className="bg-surface p-6 rounded-lg shadow-lg">
+        <div className="bg-surface p-4 md:p-6 rounded-lg shadow-lg">
             <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold">{t('transactions.list.title')}</h2>
                 {activeShop && selectedDate && (
@@ -443,7 +445,9 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                     </div>
                 )}
             </div>
-            <div className="overflow-x-auto">
+
+            {/* Desktop Table View - Hidden on mobile */}
+            <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-right">
                     <thead>
                         <tr className="border-b border-gray-700 text-text-secondary">
@@ -453,7 +457,7 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                             <th className="p-3">{t('transactions.list.columns.description')}</th>
                             <th className="p-3">{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</th>
                             <th className="p-3 text-left">{t('transactions.list.columns.amount')}</th>
-                            <th className="p-3 text-center">{t('transactions.list.columns.actions')}</th>
+                            <th className="p-3 text-center sticky left-0 bg-surface z-10">{t('transactions.list.columns.actions')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -466,7 +470,7 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                                     </span>
                                 </td>
                                 <td className="p-3 text-sm text-text-secondary">{getTransactionContextName(tx)}</td>
-                                <td className="p-3 text-white">{tx.description}</td>
+                                <td className={`p-3 ${resolvedTheme === 'light' ? 'text-gray-900' : 'text-white'}`}>{tx.description}</td>
                                 <td className="p-3 text-center">
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentMethod(tx) === (language === 'ar' ? 'نقدي' : 'Cash') ? 'bg-green-500/20 text-green-400' : getPaymentMethod(tx) === (language === 'ar' ? 'بنك' : 'Bank') ? 'bg-purple-500/20 text-purple-400' : 'bg-gray-500/20 text-gray-400'}`}>
                                         {getPaymentMethod(tx)}
@@ -475,7 +479,7 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                                 <td className={`p-3 text-left font-mono font-bold ${tx.type === TransactionType.SALE ? 'text-green-400' : tx.type === TransactionType.TRANSFER ? 'text-blue-300' : 'text-red-400'}`}>
                                     {formatCurrency(tx.totalAmount)}
                                 </td>
-                                <td className="p-3 text-center">
+                                <td className="p-3 text-center sticky left-0 bg-background/90 backdrop-blur-sm z-10">
                                     <button
                                         onClick={() => onStartEdit(tx)}
                                         className="text-accent hover:text-blue-400 p-2 transition-colors duration-200"
@@ -502,6 +506,63 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Mobile Card View - Visible only on mobile */}
+            <div className="md:hidden space-y-3">
+                {transactions.slice(0, 10).map((tx) => (
+                    <div key={tx.id} className="bg-background border border-gray-700 rounded-lg p-4 space-y-3">
+                        {/* Header row with type and amount */}
+                        <div className="flex items-center justify-between">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTransactionTypeStyle(tx.type)}`}>
+                                {translateEnum(tx.type, transactionTypeTranslations, language)}
+                            </span>
+                            <span className={`font-mono font-bold text-lg ${tx.type === TransactionType.SALE ? 'text-green-400' : tx.type === TransactionType.TRANSFER ? 'text-blue-300' : 'text-red-400'}`}>
+                                {formatCurrency(tx.totalAmount)}
+                            </span>
+                        </div>
+
+                        {/* Context and description */}
+                        <div>
+                            <p className="text-text-secondary text-sm">{getTransactionContextName(tx)}</p>
+                            <p className="text-text-primary font-medium">{tx.description}</p>
+                        </div>
+
+                        {/* Payment method and date */}
+                        <div className="flex items-center justify-between text-sm">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentMethod(tx) === (language === 'ar' ? 'نقدي' : 'Cash') ? 'bg-green-500/20 text-green-400' : getPaymentMethod(tx) === (language === 'ar' ? 'بنك' : 'Bank') ? 'bg-purple-500/20 text-purple-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                                {getPaymentMethod(tx)}
+                            </span>
+                            <span className="text-text-secondary">
+                                {new Date(tx.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex gap-2 pt-2 border-t border-gray-700">
+                            <button
+                                onClick={() => onStartEdit(tx)}
+                                className="flex-1 flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/30 text-accent py-2 px-4 rounded-lg transition-colors"
+                            >
+                                <EditIcon />
+                                <span>{t('transactions.list.actions.edit')}</span>
+                            </button>
+                            <button
+                                onClick={() => handleDeleteClick(tx)}
+                                className="flex-1 flex items-center justify-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 px-4 rounded-lg transition-colors"
+                            >
+                                <DeleteIcon />
+                                <span>{t('transactions.list.actions.delete')}</span>
+                            </button>
+                        </div>
+                    </div>
+                ))}
+
+                {transactions.length === 0 && (
+                    <div className="text-center p-6 text-text-secondary">
+                        {t('transactions.list.empty')}
+                    </div>
+                )}
             </div>
 
             {/* Delete Confirmation Dialog */}

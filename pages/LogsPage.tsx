@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Log, LogType } from '../types';
+import MobileSelect from '../components/MobileSelect';
 
 const LogTypeIcon: React.FC<{ type: LogType }> = ({ type }) => {
     const baseClasses = "w-6 h-6 p-1 rounded-full text-white flex items-center justify-center";
@@ -82,24 +83,25 @@ const LogsPage: React.FC<LogsPageProps> = ({ logs }) => {
         <div className="space-y-6">
             <div className="flex justify-between items-center gap-4 flex-wrap">
                 <h1 className="text-3xl font-bold">سجل النشاطات</h1>
-                <div className="flex gap-2 flex-wrap items-center">
-                    <label htmlFor="logFilter" className="text-text-secondary">تصفية حسب:</label>
-                    <select
-                        id="logFilter"
+                <div className="min-w-[200px]">
+                    <MobileSelect
+                        label="تصفية حسب"
                         value={filter}
-                        onChange={(e) => setFilter(e.target.value as LogType | 'ALL')}
-                        className="bg-surface border border-gray-600 rounded-lg py-2 px-4 text-text-primary focus:ring-primary focus:border-primary"
-                    >
-                        <option value="ALL">الكل</option>
-                        {logTypes.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                        ))}
-                    </select>
+                        onChange={(value) => setFilter(value as LogType | 'ALL')}
+                        options={[
+                            { value: 'ALL', label: 'الكل' },
+                            ...logTypes.map(type => ({
+                                value: type,
+                                label: type
+                            }))
+                        ]}
+                    />
                 </div>
             </div>
 
-            <div className="bg-surface p-6 rounded-lg shadow-lg">
-                 <div className="overflow-x-auto">
+            <div className="bg-surface p-4 md:p-6 rounded-lg shadow-lg">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-right">
                         <thead>
                             <tr className="border-b border-gray-700 text-text-secondary">
@@ -127,6 +129,31 @@ const LogsPage: React.FC<LogsPageProps> = ({ logs }) => {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                    {filteredLogs.length === 0 ? (
+                        <div className="text-center p-8 text-text-secondary">
+                            لا توجد سجلات تطابق هذه التصفية.
+                        </div>
+                    ) : (
+                        filteredLogs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((log) => (
+                            <div key={log.id} className="bg-background border border-gray-700 rounded-lg p-4 space-y-3">
+                                {/* Icon and Type */}
+                                <div className="flex items-center gap-3">
+                                    <LogTypeIcon type={log.type} />
+                                    <span className="font-medium text-text-primary">{log.type}</span>
+                                </div>
+
+                                {/* Message */}
+                                <p className="text-text-secondary">{log.message}</p>
+
+                                {/* Time */}
+                                <p className="text-sm text-text-secondary">{formatRelativeTime(log.timestamp)}</p>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
         </div>

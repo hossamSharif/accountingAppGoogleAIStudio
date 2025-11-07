@@ -78,6 +78,7 @@ export interface Account {
     nature: AccountNature;
     type: AccountType;
     parentId?: string;
+    level?: number;      // Account depth/hierarchy level (1 = main, 2 = sub1, 3 = sub2)
     isActive: boolean;
     openingBalance?: number;
     category?: string; // For expense categorization and analytics

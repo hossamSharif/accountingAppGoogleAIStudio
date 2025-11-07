@@ -185,8 +185,9 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
                 </div>
             )}
 
-            <div className="bg-surface p-6 rounded-lg shadow-lg">
-                <div className="overflow-x-auto">
+            <div className="bg-surface p-4 md:p-6 rounded-lg shadow-lg">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-right">
                         <thead>
                              <tr className="border-b border-gray-700 text-text-secondary">
@@ -194,7 +195,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
                                 <th className="p-3">البريد الإلكتروني</th>
                                 <th className="p-3">المتجر المرتبط</th>
                                 <th className="p-3">الحالة</th>
-                                <th className="p-3 text-left">الإجراءات</th>
+                                <th className="p-3 text-left sticky left-0 bg-surface z-10">الإجراءات</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -208,7 +209,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
                                             {user.isActive ? 'نشط' : 'غير نشط'}
                                         </span>
                                     </td>
-                                    <td className="p-3 text-left">
+                                    <td className="p-3 text-left sticky left-0 bg-background/90 backdrop-blur-sm z-10">
                                         <button
                                             onClick={() => handleOpenModal(user)}
                                             disabled={isLoading}
@@ -245,6 +246,65 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                    {filteredUsers.length === 0 ? (
+                        <div className="text-center p-8 text-text-secondary">
+                            لا يوجد مستخدمون يطابقون بحثك أو لم يتم إضافة أي مستخدمين بعد.
+                        </div>
+                    ) : (
+                        filteredUsers.map((user) => (
+                            <div key={user.id} className="bg-background border border-gray-700 rounded-lg p-4 space-y-3">
+                                {/* Header with name and status */}
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium text-text-primary">{user.name}</span>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                        {user.isActive ? 'نشط' : 'غير نشط'}
+                                    </span>
+                                </div>
+
+                                {/* Email and Shop */}
+                                <div className="space-y-1 text-sm">
+                                    <p className="text-text-secondary text-left">{user.email}</p>
+                                    <p className="text-text-secondary">{getShopName(user.shopId)}</p>
+                                </div>
+
+                                {/* Action buttons */}
+                                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-700">
+                                    <button
+                                        onClick={() => handleOpenModal(user)}
+                                        disabled={isLoading}
+                                        className="flex items-center justify-center gap-1 bg-primary/20 hover:bg-primary/30 text-accent py-2 px-3 rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        <EditIcon />
+                                        <span className="text-xs">تعديل</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setTogglingUser(user)}
+                                        disabled={isLoading}
+                                        className={`flex items-center justify-center gap-1 py-2 px-3 rounded-lg transition-colors disabled:opacity-50 ${
+                                            user.isActive
+                                                ? 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400'
+                                                : 'bg-green-500/20 hover:bg-green-500/30 text-green-400'
+                                        }`}
+                                    >
+                                        {user.isActive ? <ToggleOffIcon /> : <ToggleOnIcon />}
+                                        <span className="text-xs">{user.isActive ? 'إيقاف' : 'تفعيل'}</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setDeletingUser(user)}
+                                        disabled={isLoading}
+                                        className="flex items-center justify-center gap-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 px-3 rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        <DeleteIcon />
+                                        <span className="text-xs">حذف</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
 

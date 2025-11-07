@@ -72,7 +72,8 @@
     "errorDeleting": "حدث خطأ أثناء حذف الحساب",
     "loginRequired": "يجب تسجيل الدخول أولاً",
     "shopNotFound": "لم يتم العثور على معرف المتجر",
-    "openingBalanceAdminOnly": "فقط المسؤول يمكنه تعديل الرصيد الافتتاحي"
+    "openingBalanceAdminOnly": "فقط المسؤول يمكنه تعديل الرصيد الافتتاحي",
+    "maxDepthReached": "لا يمكن إنشاء أكثر من 3 مستويات من الحسابات"
   },
   "validation": {
     "nameRequired": "اسم الحساب مطلوب",

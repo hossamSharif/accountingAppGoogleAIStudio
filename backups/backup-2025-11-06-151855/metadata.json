@@ -1,0 +1,57 @@
+{
+  "timestamp": "2025-11-06T11:19:03.623Z",
+  "timezone": "Asia/Dubai",
+  "stats": [
+    {
+      "collectionName": "transactions",
+      "documentCount": 0,
+      "success": false,
+      "error": "Missing or insufficient permissions."
+    },
+    {
+      "collectionName": "accounts",
+      "documentCount": 0,
+      "success": false,
+      "error": "Missing or insufficient permissions."
+    },
+    {
+      "collectionName": "shops",
+      "documentCount": 0,
+      "success": false,
+      "error": "Missing or insufficient permissions."
+    },
+    {
+      "collectionName": "users",
+      "documentCount": 0,
+      "success": false,
+      "error": "Missing or insufficient permissions."
+    },
+    {
+      "collectionName": "financialYears",
+      "documentCount": 0,
+      "success": false,
+      "error": "Missing or insufficient permissions."
+    },
+    {
+      "collectionName": "logs",
+      "documentCount": 0,
+      "success": false,
+      "error": "Missing or insufficient permissions."
+    },
+    {
+      "collectionName": "notifications",
+      "documentCount": 0,
+      "success": false,
+      "error": "Missing or insufficient permissions."
+    },
+    {
+      "collectionName": "transactionTemplates",
+      "documentCount": 0,
+      "success": false,
+      "error": "Missing or insufficient permissions."
+    }
+  ],
+  "totalCollections": 8,
+  "successfulCollections": 0,
+  "totalDocuments": 0
+}

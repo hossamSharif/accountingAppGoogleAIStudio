@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shop, FinancialYear } from '../types';
 import { FinancialYearService } from '../services/financialYearService';
 import { formatNumber } from '../utils/formatting';
+import MobileSelect from './MobileSelect';
 import { useTranslation } from '../i18n/useTranslation';
 
 interface ShopModalProps {
@@ -324,21 +325,19 @@ const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, onSave, shopToEd
 
             {/* Business Type */}
             <div>
-                <label htmlFor="businessType" className="block text-sm font-medium text-text-secondary mb-1">
-                    {t('shops.form.businessType')}
-                </label>
-                <select
-                    id="businessType"
-                    value={formData.businessType}
-                    onChange={(e) => updateFormData('businessType', e.target.value)}
-                    className="w-full bg-background border border-gray-600 rounded-md p-3 focus:ring-2 focus:ring-primary focus:border-primary"
-                >
-                    <option value="">{t('common.actions.select')}</option>
-                    <option value="rickshawSpares">{t('shops.businessTypes.rickshawSpares')}</option>
-                    <option value="agriculturalEquipment">{t('shops.businessTypes.agriculturalEquipment')}</option>
-                    <option value="buildingMaterials">{t('shops.businessTypes.buildingMaterials')}</option>
-                    <option value="other">{t('shops.businessTypes.other')}</option>
-                </select>
+                <MobileSelect
+                    label={t('shops.form.businessType')}
+                    value={formData.businessType || ''}
+                    onChange={(value) => updateFormData('businessType', value)}
+                    placeholder={t('common.actions.select')}
+                    options={[
+                        { value: '', label: t('common.actions.select') },
+                        { value: 'rickshawSpares', label: t('shops.businessTypes.rickshawSpares') },
+                        { value: 'agriculturalEquipment', label: t('shops.businessTypes.agriculturalEquipment') },
+                        { value: 'buildingMaterials', label: t('shops.businessTypes.buildingMaterials') },
+                        { value: 'other', label: t('shops.businessTypes.other') }
+                    ]}
+                />
             </div>
 
             {formData.businessType === 'other' && (

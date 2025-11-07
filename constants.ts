@@ -71,3 +71,6 @@ export const EXPENSE_CATEGORIES = [
     'المواصلات', // Transportation
     'الصيانة', // Maintenance
 ];
+
+// Maximum account hierarchy depth (1 = main account, 2 = sub-account level 1, 3 = sub-account level 2)
+export const MAX_ACCOUNT_HIERARCHY_DEPTH = 3;

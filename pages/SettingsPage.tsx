@@ -6,13 +6,16 @@ import UserManagementPage from './UserManagementPage';
 import ShopAccountsView from './ShopAccountsView';
 import AccountsPage from './AccountsPage';
 import { FinancialYearManagementPage } from './FinancialYearManagementPage';
+import ScrollableTabs from '../components/ScrollableTabs';
 import { useTranslation } from '../i18n/useTranslation';
+import BackupManager from '../components/BackupManager';
 
 enum SettingsTab {
     SHOPS = 'shops',
     USERS = 'users',
     FINANCIAL_YEARS = 'financialYears',
-    ACCOUNTS = 'accounts'
+    ACCOUNTS = 'accounts',
+    BACKUP = 'backup'
 }
 
 interface SettingsPageProps {
@@ -105,6 +108,8 @@ const SettingsPage: React.FC<SettingsPageProps> = (props) => {
                     );
                 }
                 return <AccountsPage />;
+            case SettingsTab.BACKUP:
+                return <BackupManager />;
             default:
                 return null;
         }
@@ -114,18 +119,15 @@ const SettingsPage: React.FC<SettingsPageProps> = (props) => {
         <div className="space-y-6">
             <h1 className="text-3xl font-bold">{t('settings.title')}</h1>
 
-            <div className="bg-surface rounded-lg p-2 shadow-md">
-                <div className="flex space-x-2 space-x-reverse">
-                    {(Object.values(SettingsTab) as SettingsTab[]).map(tab => (
-                         <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-2 rounded-md font-medium transition-colors duration-300 ${activeTab === tab ? 'bg-primary text-white' : 'text-text-secondary hover:bg-background'}`}
-                        >
-                            {t(`settings.tabs.${tab}`)}
-                        </button>
-                    ))}
-                </div>
+            <div className="bg-surface rounded-lg shadow-md">
+                <ScrollableTabs
+                    tabs={(Object.values(SettingsTab) as SettingsTab[]).map(tab => ({
+                        id: tab,
+                        label: t(`settings.tabs.${tab}`)
+                    }))}
+                    activeTab={activeTab}
+                    onTabChange={(tabId) => setActiveTab(tabId as SettingsTab)}
+                />
             </div>
 
             <div className="mt-6">

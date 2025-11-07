@@ -1,7 +1,7 @@
 import { doc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { BaseService } from './baseService';
 import { Account, Transaction, User, AccountType } from '../types';
-import { RESTRICTED_ACCOUNT_TYPES, USER_ALLOWED_ACCOUNT_TYPES, EXPENSE_CATEGORIES } from '../constants';
+import { RESTRICTED_ACCOUNT_TYPES, USER_ALLOWED_ACCOUNT_TYPES, EXPENSE_CATEGORIES, MAX_ACCOUNT_HIERARCHY_DEPTH } from '../constants';
 
 export interface CreateAccountData {
     name: string;
@@ -72,6 +72,12 @@ export class AccountService extends BaseService {
                     throw new Error('Cannot create account under inactive parent account');
                 }
 
+                // Check depth limit using constant
+                const parentDepth = await this.getAccountDepth(parentAccount.id);
+                if (parentDepth >= MAX_ACCOUNT_HIERARCHY_DEPTH) {
+                    throw new Error(`لا يمكن إنشاء أكثر من ${MAX_ACCOUNT_HIERARCHY_DEPTH} مستويات من الحسابات`);
+                }
+
                 // For users, ensure they can create sub-accounts under this parent type
                 if (user.role !== 'admin' && RESTRICTED_ACCOUNT_TYPES.includes(parentAccount.type)) {
                     throw new Error('غير مسموح لك بإنشاء حسابات فرعية تحت هذا النوع من الحسابات');
@@ -93,6 +99,15 @@ export class AccountService extends BaseService {
 
             // 4. Create account document
             const accountRef = doc(collection(this.db, 'accounts'));
+
+            // Get parent account and calculate level
+            const parentAccount = accountData.parentAccountCode ?
+                await this.getAccountByCode(accountData.parentAccountCode, accountData.shopId) :
+                undefined;
+
+            const parentId = parentAccount?.id;
+            const level = parentId ? await this.getDepthByParentId(parentId) : 1;
+
             const newAccount: Omit<Account, 'id'> = {
                 shopId: accountData.shopId,
                 accountCode: accountData.accountCode.trim(),
@@ -100,9 +115,8 @@ export class AccountService extends BaseService {
                 classification: accountData.classification as any || 'الأصول',
                 nature: accountData.nature as any || 'مدين',
                 type: accountData.type,
-                parentId: accountData.parentAccountCode ?
-                    (await this.getAccountByCode(accountData.parentAccountCode, accountData.shopId))?.id :
-                    undefined,
+                parentId,
+                level,
                 isActive: true,
                 openingBalance: accountData.openingBalance || 0,
                 category: accountData.category
@@ -167,8 +181,13 @@ export class AccountService extends BaseService {
                     if (wouldCreateCircle) {
                         throw new Error('This would create a circular reference in the account hierarchy');
                     }
+                    updateData.parentId = parentAccount.id;
+                    // Also update level when parent changes
+                    updateData.level = await this.getDepthByParentId(parentAccount.id);
+                } else {
+                    updateData.parentId = undefined;
+                    updateData.level = 1;
                 }
-                updateData.parentAccountCode = accountData.parentAccountCode.trim();
             }
 
             if (accountData.type) {
@@ -346,18 +365,26 @@ export class AccountService extends BaseService {
             });
         });
 
-        // Build hierarchy
+        // Build hierarchy - using parentId to find parent accounts
         accounts.forEach(account => {
             const node = accountMap.get(account.accountCode);
             if (!node) return;
 
-            if (account.parentAccountCode && accountMap.has(account.parentAccountCode)) {
-                const parent = accountMap.get(account.parentAccountCode)!;
-                parent.children.push(node);
-                node.level = parent.level + 1;
-            } else {
-                rootNodes.push(node);
+            if (account.parentId) {
+                // Find parent by parentId
+                const parentAccount = accounts.find(a => a.id === account.parentId);
+                if (parentAccount) {
+                    const parent = accountMap.get(parentAccount.accountCode);
+                    if (parent) {
+                        parent.children.push(node);
+                        node.level = parent.level + 1;
+                        return;
+                    }
+                }
             }
+
+            // No parent found or no parentId - this is a root node
+            rootNodes.push(node);
         });
 
         // Sort children recursively
@@ -399,7 +426,7 @@ export class AccountService extends BaseService {
 
             const q = query(
                 collection(this.db, 'accounts'),
-                where('parentAccountCode', '==', account.accountCode),
+                where('parentId', '==', account.id),
                 where('shopId', '==', shopId)
             );
 
@@ -420,7 +447,7 @@ export class AccountService extends BaseService {
 
             const q = query(
                 collection(this.db, 'accounts'),
-                where('parentAccountCode', '==', account.accountCode),
+                where('parentId', '==', account.id),
                 where('shopId', '==', shopId),
                 where('isActive', '==', true)
             );
@@ -447,12 +474,11 @@ export class AccountService extends BaseService {
 
                 visitedIds.add(currentParentId);
                 const parent = await this.getAccountById(currentParentId);
-                if (!parent || !parent.parentAccountCode) {
+                if (!parent || !parent.parentId) {
                     break;
                 }
 
-                const grandParent = await this.getAccountByCode(parent.parentAccountCode, parent.shopId);
-                currentParentId = grandParent?.id || '';
+                currentParentId = parent.parentId;
             }
 
             return false;
@@ -461,6 +487,37 @@ export class AccountService extends BaseService {
             console.error('Error checking circular reference:', error);
             return true; // Assume true to be safe
         }
+    }
+
+    // Get the depth/level of an account (1 = main, 2 = sub1, 3 = sub2)
+    static async getAccountDepth(accountId: string): Promise<number> {
+        try {
+            const account = await this.getAccountById(accountId);
+            if (!account) return 0;
+
+            let depth = 1;
+            let currentAccount = account;
+
+            while (currentAccount.parentId) {
+                depth++;
+                const parent = await this.getAccountById(currentAccount.parentId);
+                if (!parent) break;
+                currentAccount = parent;
+            }
+
+            return depth;
+        } catch (error: any) {
+            console.error('Error calculating account depth:', error);
+            return 0;
+        }
+    }
+
+    // Get the depth/level of an account by parent ID
+    static async getDepthByParentId(parentId: string | undefined): Promise<number> {
+        if (!parentId) return 1; // No parent means level 1 (main account)
+
+        const parentDepth = await this.getAccountDepth(parentId);
+        return parentDepth + 1;
     }
 
     // Get account statistics
@@ -494,12 +551,18 @@ export class AccountService extends BaseService {
                 ? transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
                 : null;
 
-            const childAccounts = await this.getDocumentsByField('accounts', 'parentAccountCode', account.accountCode);
+            // Count child accounts using the hasChildAccounts method for consistency
+            const childAccountsQuery = query(
+                collection(this.db, 'accounts'),
+                where('parentId', '==', account.id),
+                where('shopId', '==', account.shopId)
+            );
+            const childSnapshot = await getDocs(childAccountsQuery);
 
             return {
                 balance,
                 transactionCount: transactions.length,
-                childAccountsCount: childAccounts.length,
+                childAccountsCount: childSnapshot.size,
                 lastTransactionDate: lastTransaction?.date
             };
 
@@ -542,7 +605,7 @@ export class AccountService extends BaseService {
     // Get root accounts (accounts with no parent)
     static async getRootAccounts(shopId: string): Promise<Account[]> {
         return this.getDocumentsByField<Account>('accounts', 'shopId', shopId).then(accounts =>
-            accounts.filter(account => !account.parentAccountCode)
+            accounts.filter(account => !account.parentId)
         );
     }
 

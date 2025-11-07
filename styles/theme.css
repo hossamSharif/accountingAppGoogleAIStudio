@@ -1,0 +1,258 @@
+/* ============================================
+   Theme CSS Variables
+   ============================================ */
+
+/* Light Theme - Default */
+:root.light,
+:root[data-theme="light"] {
+  /* Brand Colors */
+  --color-primary: #FDB913;
+  --color-primary-dark: #E5A50D;
+  --color-secondary: #F97316;
+
+  /* Background Colors */
+  --color-background: #F9FAFB;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #F3F4F6;
+
+  /* Text Colors */
+  --color-text-primary: #111827;
+  --color-text-secondary: #374151;
+  --color-text-tertiary: #6B7280;
+
+  /* Border Colors */
+  --color-border: #E5E7EB;
+  --color-border-focus: #FDB913;
+
+  /* Input Colors */
+  --color-input-bg: #FFFFFF;
+  --color-input-border: #D1D5DB;
+  --color-input-placeholder: #6B7280;
+  --color-input-disabled: #F3F4F6;
+
+  /* Table Row Colors - Visual Hierarchy */
+  --color-table-row-depth-1: #E5E7EB;
+  --color-table-row-depth-2: #F3F4F6;
+  --color-table-row-depth-3: #F9FAFB;
+  --color-table-row-hover: rgba(0, 0, 0, 0.05);
+
+  /* State Colors */
+  --color-accent: #3B82F6;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #06B6D4;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+  /* Overlay */
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+}
+
+/* Dark Theme */
+:root.dark,
+:root[data-theme="dark"] {
+  /* Brand Colors */
+  --color-primary: #FDB913;
+  --color-primary-dark: #E5A50D;
+  --color-secondary: #F97316;
+
+  /* Background Colors */
+  --color-background: #111827;
+  --color-surface: #1F2937;
+  --color-surface-hover: #374151;
+
+  /* Text Colors */
+  --color-text-primary: #F9FAFB;
+  --color-text-secondary: #D1D5DB;
+  --color-text-tertiary: #9CA3AF;
+
+  /* Border Colors */
+  --color-border: #374151;
+  --color-border-focus: #FDB913;
+
+  /* Input Colors */
+  --color-input-bg: #374151;
+  --color-input-border: #4B5563;
+  --color-input-placeholder: #9CA3AF;
+  --color-input-disabled: #1F2937;
+
+  /* Table Row Colors - Visual Hierarchy */
+  --color-table-row-depth-1: #374151;
+  --color-table-row-depth-2: rgba(55, 65, 81, 0.5);
+  --color-table-row-depth-3: rgba(55, 65, 81, 0.25);
+  --color-table-row-hover: rgba(255, 255, 255, 0.05);
+
+  /* State Colors */
+  --color-accent: #3B82F6;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #06B6D4;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+
+  /* Overlay */
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+}
+
+/* ============================================
+   Global Theme Styles
+   ============================================ */
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Recharts styling for RTL support */
+.recharts-text,
+.recharts-legend-item-text {
+  font-family: 'Tajawal', sans-serif !important;
+  direction: rtl;
+}
+
+/* ============================================
+   Input Fields Theme Styles
+   ============================================ */
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="date"],
+select,
+textarea {
+  background-color: var(--color-input-bg) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-input-border) !important;
+}
+
+input[type="text"]::placeholder,
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
+input[type="number"]::placeholder,
+input[type="tel"]::placeholder,
+textarea::placeholder {
+  color: var(--color-input-placeholder) !important;
+  opacity: 0.7;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+input[type="date"]:focus,
+select:focus,
+textarea:focus {
+  background-color: var(--color-surface-hover) !important;
+  border-color: var(--color-border-focus) !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(253, 185, 19, 0.2);
+}
+
+select {
+  background-color: var(--color-input-bg) !important;
+  color: var(--color-text-primary) !important;
+}
+
+select option {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-primary) !important;
+  padding: 8px;
+}
+
+select option:hover {
+  background-color: var(--color-surface-hover) !important;
+}
+
+/* Disabled state */
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: var(--color-input-disabled) !important;
+  color: var(--color-text-tertiary) !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Number input controls */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+  height: 30px;
+}
+
+/* ============================================
+   Typography Theme Styles
+   ============================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-primary) !important;
+}
+
+.text-3xl,
+.text-2xl,
+.text-xl,
+.text-lg {
+  color: var(--color-text-primary) !important;
+}
+
+label {
+  color: var(--color-text-primary) !important;
+  font-weight: 500;
+}
+
+.text-text-secondary {
+  color: var(--color-text-secondary) !important;
+}
+
+.text-text-primary {
+  color: var(--color-text-primary) !important;
+}
+
+.font-bold,
+.font-semibold {
+  color: var(--color-text-primary) !important;
+}
+
+/* ============================================
+   Button Theme Styles
+   ============================================ */
+
+button {
+  color: var(--color-text-primary) !important;
+}
+
+button:hover {
+  color: var(--color-text-primary) !important;
+}
+
+.bg-primary {
+  background-color: var(--color-primary) !important;
+  color: #FFFFFF !important;
+}
+
+.bg-primary:hover {
+  background-color: var(--color-primary-dark) !important;
+}
+
+/* ============================================
+   Smooth Transitions
+   ============================================ */
+
+* {
+  transition: background-color 0.2s ease-in-out,
+              color 0.2s ease-in-out,
+              border-color 0.2s ease-in-out;
+}

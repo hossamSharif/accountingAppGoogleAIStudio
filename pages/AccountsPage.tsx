@@ -8,6 +8,7 @@ import { doc, getDoc, collection, query, where, onSnapshot, orderBy } from 'fire
 import AccountList from '../components/AccountList';
 import AccountModal from '../components/AccountModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import MobileSelect from '../components/MobileSelect';
 import { useTranslation } from '../i18n/useTranslation';
 import { translateEnum, accountClassificationTranslations, accountNatureTranslations } from '../i18n/enumTranslations';
 import { getBilingualText } from '../utils/bilingual';
@@ -275,11 +276,13 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
 
     const accountBalances = useMemo(() => {
         const balances: { [key: string]: number } = {};
-        
+
+        // Step 1: Initialize all account balances with opening balance
         accounts.forEach(acc => {
             balances[acc.id] = acc.openingBalance || 0;
         });
 
+        // Step 2: Add transaction amounts to each account
         transactions.forEach(t => {
             t.entries.forEach(entry => {
                 if (balances[entry.accountId] !== undefined) {
@@ -287,28 +290,42 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                 }
             });
         });
-        
-        const parentIds = new Set(accounts.filter(a => a.parentId).map(a => a.parentId));
-        const childBalances: { [key: string]: number } = {};
 
-        for(const acc of accounts){
-             if(!parentIds.has(acc.id)){ // It's a leaf node
-                let current = acc;
-                let balance = balances[acc.id];
-                while(current.parentId){
-                    if(!childBalances[current.parentId]) childBalances[current.parentId] = 0;
-                    childBalances[current.parentId] += balance;
-                    const parent = accounts.find(a => a.id === current.parentId);
-                    if(!parent) break;
-                    current = parent;
+        // Step 3: Build parent-child map for efficient lookups
+        const childrenMap = new Map<string, string[]>();
+        accounts.forEach(acc => {
+            if (acc.parentId) {
+                if (!childrenMap.has(acc.parentId)) {
+                    childrenMap.set(acc.parentId, []);
                 }
-             }
-        }
-        
-        const finalBalances = {...balances};
-        for(const accId in childBalances){
-            finalBalances[accId] += childBalances[accId];
-        }
+                childrenMap.get(acc.parentId)!.push(acc.id);
+            }
+        });
+
+        // Step 4: Recursively calculate parent balances from children
+        const calculateParentBalance = (accountId: string): number => {
+            const children = childrenMap.get(accountId) || [];
+
+            if (children.length === 0) {
+                // Leaf node - return its own balance
+                return balances[accountId];
+            }
+
+            // Parent node - sum of own balance plus all children's balances
+            let totalBalance = balances[accountId]; // Include own opening balance
+
+            children.forEach(childId => {
+                totalBalance += calculateParentBalance(childId);
+            });
+
+            return totalBalance;
+        };
+
+        // Step 5: Calculate final balances for all accounts
+        const finalBalances: { [key: string]: number } = {};
+        accounts.forEach(acc => {
+            finalBalances[acc.id] = calculateParentBalance(acc.id);
+        });
 
         return finalBalances;
 
@@ -319,18 +336,41 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
         const getChildAccounts = (parentId: string) => accounts.filter(a => a.parentId === parentId).sort((a,b) => a.accountCode.localeCompare(b.accountCode));
 
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // \uFEFF for BOM
-        csvContent += "الرمز,الحساب الرئيسي,الحساب الفرعي,التصنيف,الطبيعة,الرصيد,الحالة\n";
+        csvContent += "الرمز,الحساب الرئيسي,الحساب الفرعي 1,الحساب الفرعي 2,التصنيف,الطبيعة,الرصيد,الحالة\n";
 
+        // Recursive function to export account hierarchy
+        const exportAccount = (account: Account, mainAccountName: string = '', sub1AccountName: string = '', depth: number = 1) => {
+            const balance = accountBalances[account.id] || 0;
+            const displayBalance = account.nature === AccountNature.CREDIT ? -balance : balance;
+            const status = account.isActive ? 'نشط' : 'غير نشط';
+
+            if (depth === 1) {
+                // Main account (level 1)
+                csvContent += `${account.accountCode},"${account.name}","","",${account.classification},${account.nature},${displayBalance},${status}\n`;
+
+                // Export children
+                getChildAccounts(account.id).forEach(child => {
+                    exportAccount(child, account.name, '', 2);
+                });
+            } else if (depth === 2) {
+                // Sub1 account (level 2)
+                csvContent += `${account.accountCode},"${mainAccountName}","${account.name}","",${account.classification},${account.nature},${displayBalance},${status}\n`;
+
+                // Export children
+                getChildAccounts(account.id).forEach(child => {
+                    exportAccount(child, mainAccountName, account.name, 3);
+                });
+            } else if (depth === 3) {
+                // Sub2 account (level 3)
+                csvContent += `${account.accountCode},"${mainAccountName}","${sub1AccountName}","${account.name}",${account.classification},${account.nature},${displayBalance},${status}\n`;
+
+                // Note: No deeper levels supported in export (max 3)
+            }
+        };
+
+        // Export all top-level accounts and their hierarchies
         parentAccounts.forEach(parent => {
-            const balance = accountBalances[parent.id] || 0;
-            const displayBalance = parent.nature === AccountNature.CREDIT ? -balance : balance;
-            csvContent += `${parent.accountCode},"${parent.name}","",${parent.classification},${parent.nature},${displayBalance},${parent.isActive ? 'نشط' : 'غير نشط'}\n`;
-            
-            getChildAccounts(parent.id).forEach(child => {
-                const childBalance = accountBalances[child.id] || 0;
-                const childDisplayBalance = child.nature === AccountNature.CREDIT ? -childBalance : childBalance;
-                csvContent += `${child.accountCode},"${parent.name}","${child.name}",${child.classification},${child.nature},${childDisplayBalance},${child.isActive ? 'نشط' : 'غير نشط'}\n`;
-            });
+            exportAccount(parent, '', '', 1);
         });
 
         const encodedUri = encodeURI(csvContent);
@@ -496,60 +536,51 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
                     {/* Shop Filter - Only show for admin */}
                     {currentUser?.role === 'admin' && shops.length > 0 && (
                         <div className="flex-1 min-w-[200px]">
-                            <label className="block text-sm font-medium text-text-secondary mb-2">
-                                {t('accounts.filters.shop')}
-                            </label>
-                            <select
+                            <MobileSelect
+                                label={t('accounts.filters.shop')}
                                 value={selectedShop}
-                                onChange={(e) => setSelectedShop(e.target.value)}
-                                className="w-full bg-surface border border-gray-600 rounded-lg p-2 text-text-primary focus:ring-primary focus:border-primary"
-                            >
-                                <option value="all">{t('accounts.filters.allShops')}</option>
-                                {shops.map((shop) => (
-                                    <option key={shop.id} value={shop.id}>
-                                        {getBilingualText(shop.name, shop.nameEn, language)}
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={(value) => setSelectedShop(value)}
+                                options={[
+                                    { value: 'all', label: t('accounts.filters.allShops') },
+                                    ...shops.map((shop) => ({
+                                        value: shop.id,
+                                        label: getBilingualText(shop.name, shop.nameEn, language)
+                                    }))
+                                ]}
+                            />
                         </div>
                     )}
 
                     {/* Classification Filter */}
                     <div className="flex-1 min-w-[200px]">
-                        <label className="block text-sm font-medium text-text-secondary mb-2">
-                            {t('accounts.filters.classification')}
-                        </label>
-                        <select
+                        <MobileSelect
+                            label={t('accounts.filters.classification')}
                             value={selectedClassification}
-                            onChange={(e) => setSelectedClassification(e.target.value)}
-                            className="w-full bg-surface border border-gray-600 rounded-lg p-2 text-text-primary focus:ring-primary focus:border-primary"
-                        >
-                            <option value="all">{t('accounts.filters.allClassifications')}</option>
-                            {Object.values(AccountClassification).map((classification) => (
-                                <option key={classification} value={classification}>
-                                    {translateEnum(classification, accountClassificationTranslations, language)}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(value) => setSelectedClassification(value)}
+                            options={[
+                                { value: 'all', label: t('accounts.filters.allClassifications') },
+                                ...Object.values(AccountClassification).map((classification) => ({
+                                    value: classification,
+                                    label: translateEnum(classification, accountClassificationTranslations, language)
+                                }))
+                            ]}
+                        />
                     </div>
 
                     {/* Nature Filter */}
                     <div className="flex-1 min-w-[200px]">
-                        <label className="block text-sm font-medium text-text-secondary mb-2">
-                            {t('accounts.filters.nature')}
-                        </label>
-                        <select
+                        <MobileSelect
+                            label={t('accounts.filters.nature')}
                             value={selectedNature}
-                            onChange={(e) => setSelectedNature(e.target.value)}
-                            className="w-full bg-surface border border-gray-600 rounded-lg p-2 text-text-primary focus:ring-primary focus:border-primary"
-                        >
-                            <option value="all">{t('accounts.filters.allNatures')}</option>
-                            {Object.values(AccountNature).map((nature) => (
-                                <option key={nature} value={nature}>
-                                    {translateEnum(nature, accountNatureTranslations, language)}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(value) => setSelectedNature(value)}
+                            options={[
+                                { value: 'all', label: t('accounts.filters.allNatures') },
+                                ...Object.values(AccountNature).map((nature) => ({
+                                    value: nature,
+                                    label: translateEnum(nature, accountNatureTranslations, language)
+                                }))
+                            ]}
+                        />
                     </div>
                 </div>
             </div>

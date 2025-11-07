@@ -34,6 +34,25 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
     const parentAccounts = accounts.filter(a => !a.parentId).sort((a,b) => a.accountCode.localeCompare(b.accountCode));
     const getChildAccounts = (parentId: string) => accounts.filter(a => a.parentId === parentId).sort((a,b) => a.accountCode.localeCompare(b.accountCode));
 
+    // Helper function to get account depth for visual styling (optimized to use stored level field)
+    const getAccountDepth = (account: Account): number => {
+        // Use stored level if available (performance optimization)
+        if (account.level) {
+            return account.level;
+        }
+
+        // Fallback to calculation for backwards compatibility with existing data
+        let depth = 1;
+        let current = account;
+        while (current.parentId) {
+            depth++;
+            const parent = accounts.find(a => a.id === current.parentId);
+            if (!parent) break;
+            current = parent;
+        }
+        return depth;
+    };
+
     const accountsWithTransactions = useMemo(() => {
         const accountIds = new Set<string>();
         transactions.forEach(t => {
@@ -44,27 +63,63 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
         return accountIds;
     }, [transactions]);
 
-    const renderAccountRow = (account: Account, isParent: boolean = false) => {
+    const renderAccountRow = (account: Account, depth: number = 1) => {
         const balance = accountBalances[account.id] || 0;
         // Display balance as a positive number for the user, reflecting its nature.
         const displayBalance = account.nature === AccountNature.CREDIT ? -balance : balance;
         const hasTransactions = accountsWithTransactions.has(account.id);
         const isAdmin = currentUser?.role === 'admin';
 
+        const isMainAccount = depth === 1;
+
         // Check if admin can edit (always true for admin, restricted for parent accounts for non-admin)
-        const canEdit = isAdmin || !isParent;
-        const canToggleStatus = isAdmin || !isParent;
-        const canDelete = (isAdmin || !isParent) && !hasTransactions;
+        const canEdit = isAdmin || !isMainAccount;
+        const canToggleStatus = isAdmin || !isMainAccount;
+        const canDelete = (isAdmin || !isMainAccount) && !hasTransactions;
 
         // Get bilingual account name
         const accountName = getBilingualText(account.name, account.nameEn, language);
 
+        // Visual hierarchy based on depth
+        const indentSymbol = depth === 1 ? '' : depth === 2 ? '— ' : '—— ';
+        const rowBgClass = depth === 1
+            ? "border-b transition-colors duration-200"
+            : depth === 2
+            ? "border-b transition-colors duration-200"
+            : "border-b transition-colors duration-200";
+        const textClass = depth === 1
+            ? 'font-bold text-text-primary'
+            : depth === 2
+            ? 'text-text-secondary'
+            : 'text-text-tertiary';
+        const balanceClass = depth === 1 ? 'font-bold text-accent' : 'text-text-secondary';
+
+        // Inline styles for depth-based background and hover
+        const rowStyle: React.CSSProperties = {
+            backgroundColor: depth === 1
+                ? 'var(--color-table-row-depth-1)'
+                : depth === 2
+                ? 'var(--color-table-row-depth-2)'
+                : 'var(--color-table-row-depth-3)',
+            borderColor: 'var(--color-border)',
+        };
+
         return (
-             <tr key={account.id} className={isParent ? "bg-gray-800 hover:bg-gray-700/50" : "bg-gray-800/30 border-b border-gray-700 transition-colors duration-200 hover:bg-background/50"}>
+             <tr
+                key={account.id}
+                className={`${rowBgClass} transition-all duration-200`}
+                style={rowStyle}
+                onMouseEnter={(e) => {
+                    e.currentTarget.style.filter = 'brightness(0.95)';
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.style.filter = 'brightness(1)';
+                }}
+            >
                 <td className="p-3 text-text-secondary font-mono">{account.accountCode}</td>
-                <td className={`p-3 font-medium ${isParent ? 'font-bold text-text-primary' : 'text-gray-300'}`}>
-                    {/* Add visual hierarchy with dash for sub-accounts */}
-                    {!isParent && <span className="text-gray-500 mr-2">—</span>}
+                <td className={`p-3 font-medium ${textClass}`}>
+                    {/* Add visual hierarchy with dashes based on depth */}
+                    {indentSymbol && <span className="text-text-tertiary mr-2">{indentSymbol}</span>}
                     {accountName}
                 </td>
                 <td className="p-3 text-text-secondary">
@@ -73,10 +128,10 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                 <td className="p-3 text-text-secondary">
                     {translateEnum(account.nature, accountNatureTranslations, language)}
                 </td>
-                <td className={`p-3 font-mono text-blue-400 ${isParent ? 'font-bold' : ''}`}>
+                <td className={`p-3 font-mono ${depth === 1 ? 'font-bold text-accent' : 'text-text-secondary'}`}>
                     {formatCurrency(account.openingBalance || 0)}
                 </td>
-                <td className={`p-3 font-mono ${isParent ? 'font-bold text-accent' : 'text-gray-300'}`}>{formatCurrency(displayBalance)}</td>
+                <td className={`p-3 font-mono ${balanceClass}`}>{formatCurrency(displayBalance)}</td>
                 <td className="p-3">
                     <span className={`px-2 py-1 text-xs rounded-full ${account.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                         {account.isActive ? t('accounts.status.active') : t('accounts.status.inactive')}
@@ -115,12 +170,21 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
         )
     };
 
+    // Recursive function to render account and all its children
+    const renderAccountWithChildren = (account: Account, depth: number = 1): JSX.Element[] => {
+        const children = getChildAccounts(account.id);
+        return [
+            renderAccountRow(account, depth),
+            ...children.flatMap(child => renderAccountWithChildren(child, depth + 1))
+        ];
+    };
+
     return (
         <div className="bg-surface p-6 rounded-lg shadow-lg">
             <div className="overflow-x-auto">
                 <table className="w-full text-right">
                     <thead>
-                        <tr className="border-b border-gray-700 text-text-secondary">
+                        <tr className="border-b text-text-secondary" style={{ borderColor: 'var(--color-border)' }}>
                             <th className="p-3">{t('accounts.table.columns.code')}</th>
                             <th className="p-3">{t('accounts.table.columns.name')}</th>
                             <th className="p-3">{t('accounts.table.columns.classification')}</th>
@@ -134,8 +198,7 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
                     <tbody>
                         {parentAccounts.map(parent => (
                             <React.Fragment key={parent.id}>
-                                {renderAccountRow(parent, true)}
-                                {getChildAccounts(parent.id).map(child => renderAccountRow(child))}
+                                {renderAccountWithChildren(parent, 1)}
                             </React.Fragment>
                         ))}
                          {accounts.length === 0 && (

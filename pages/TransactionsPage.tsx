@@ -6,9 +6,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, orderBy, limit, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import DailyEntryForm from '../components/DailyEntryForm';
+import MobileSelect from '../components/MobileSelect';
 import { useTranslation } from '../i18n/useTranslation';
 import { translateEnum, transactionTypeTranslations } from '../i18n/enumTranslations';
 import { getBilingualText } from '../utils/bilingual';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface TransactionsPageProps {
     user: User | null;
@@ -79,6 +81,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
     onAddAccount
 }) => {
     const { t, language } = useTranslation();
+    const { resolvedTheme } = useTheme();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -131,16 +134,13 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                 // Admin viewing all shops - no shop constraint
             }
 
-            // Date range filter
+            // Date range filter using YYYY-MM-DD string comparison
+            // Note: YYYY-MM-DD format is naturally sortable as strings
             if (filters.startDate) {
-                const startTimestamp = Timestamp.fromDate(new Date(filters.startDate));
-                constraints.push(where('date', '>=', startTimestamp.toDate().toISOString()));
+                constraints.push(where('date', '>=', filters.startDate));
             }
             if (filters.endDate) {
-                const endDate = new Date(filters.endDate);
-                endDate.setHours(23, 59, 59, 999);
-                const endTimestamp = Timestamp.fromDate(endDate);
-                constraints.push(where('date', '<=', endTimestamp.toDate().toISOString()));
+                constraints.push(where('date', '<=', filters.endDate));
             }
 
             // Apply constraints
@@ -539,34 +539,35 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                         {/* Transaction Type Filter */}
                         <div>
-                            <label className="block text-sm font-medium mb-2">{t('transactions.filters.type')}</label>
-                            <select
+                            <MobileSelect
+                                label={t('transactions.filters.type')}
                                 value={filters.type}
-                                onChange={(e) => setFilters({ ...filters, type: e.target.value as any })}
-                                className="w-full p-2 bg-background border border-gray-600 rounded-lg focus:ring-2 focus:ring-accent"
-                            >
-                                <option value="all">{t('transactions.filters.allTypes')}</option>
-                                <option value={TransactionType.SALE}>{translateEnum(TransactionType.SALE, transactionTypeTranslations, language)}</option>
-                                <option value={TransactionType.PURCHASE}>{translateEnum(TransactionType.PURCHASE, transactionTypeTranslations, language)}</option>
-                                <option value={TransactionType.EXPENSE}>{translateEnum(TransactionType.EXPENSE, transactionTypeTranslations, language)}</option>
-                                <option value={TransactionType.TRANSFER}>{translateEnum(TransactionType.TRANSFER, transactionTypeTranslations, language)}</option>
-                            </select>
+                                onChange={(value) => setFilters({ ...filters, type: value as any })}
+                                options={[
+                                    { value: 'all', label: t('transactions.filters.allTypes') },
+                                    { value: TransactionType.SALE, label: translateEnum(TransactionType.SALE, transactionTypeTranslations, language) },
+                                    { value: TransactionType.PURCHASE, label: translateEnum(TransactionType.PURCHASE, transactionTypeTranslations, language) },
+                                    { value: TransactionType.EXPENSE, label: translateEnum(TransactionType.EXPENSE, transactionTypeTranslations, language) },
+                                    { value: TransactionType.TRANSFER, label: translateEnum(TransactionType.TRANSFER, transactionTypeTranslations, language) }
+                                ]}
+                            />
                         </div>
 
                         {/* Shop Filter (Admin only) */}
                         {isAdmin && (
                             <div>
-                                <label className="block text-sm font-medium mb-2">{t('transactions.filters.shop')}</label>
-                                <select
+                                <MobileSelect
+                                    label={t('transactions.filters.shop')}
                                     value={filters.shopId}
-                                    onChange={(e) => setFilters({ ...filters, shopId: e.target.value })}
-                                    className="w-full p-2 bg-background border border-gray-600 rounded-lg focus:ring-2 focus:ring-accent"
-                                >
-                                    <option value="all">{t('transactions.filters.allShops')}</option>
-                                    {shops.map(shop => (
-                                        <option key={shop.id} value={shop.id}>{getBilingualText(shop.name, shop.nameEn, language)}</option>
-                                    ))}
-                                </select>
+                                    onChange={(value) => setFilters({ ...filters, shopId: value })}
+                                    options={[
+                                        { value: 'all', label: t('transactions.filters.allShops') },
+                                        ...shops.map(shop => ({
+                                            value: shop.id,
+                                            label: getBilingualText(shop.name, shop.nameEn, language)
+                                        }))
+                                    ]}
+                                />
                             </div>
                         )}
 
@@ -672,7 +673,8 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
             {/* Transactions Table */}
             <div className="bg-surface rounded-lg shadow-lg overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full">
                         <thead className="bg-background">
                             <tr className="text-gray-400">
@@ -682,7 +684,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                                 <th className="p-4 text-right">{t('transactions.list.columns.description')}</th>
                                 <th className="p-4 text-left">{t('transactions.list.columns.amount')}</th>
                                 {isAdmin && <th className="p-4 text-right">{t('transactions.list.columns.shop')}</th>}
-                                <th className="p-4 text-center">{t('transactions.list.columns.actions')}</th>
+                                <th className="p-4 text-center sticky left-0 bg-background z-10">{t('transactions.list.columns.actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -704,7 +706,7 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                             ) : (
                                 paginatedTransactions.map((transaction, index) => (
                                     <tr key={transaction.id} className={index % 2 === 0 ? 'bg-background/50' : ''}>
-                                        <td className="p-4 whitespace-nowrap text-gray-300">
+                                        <td className={`p-4 whitespace-nowrap ${resolvedTheme === 'light' ? 'text-gray-900' : 'text-gray-300'}`}>
                                             {new Date(transaction.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
                                         </td>
                                         <td className="p-4">
@@ -712,8 +714,8 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                                                 {translateEnum(transaction.type, transactionTypeTranslations, language)}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-gray-300">{getTransactionContextName(transaction)}</td>
-                                        <td className="p-4 text-gray-200">{transaction.description || '-'}</td>
+                                        <td className={`p-4 ${resolvedTheme === 'light' ? 'text-gray-900' : 'text-gray-300'}`}>{getTransactionContextName(transaction)}</td>
+                                        <td className={`p-4 ${resolvedTheme === 'light' ? 'text-gray-900' : 'text-gray-200'}`}>{transaction.description || '-'}</td>
                                         <td className={`p-4 text-left font-mono font-bold ${
                                             transaction.type === TransactionType.SALE ? 'text-green-400' :
                                             transaction.type === TransactionType.TRANSFER ? 'text-blue-300' :
@@ -722,9 +724,9 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                                             {formatCurrency(transaction.totalAmount)}
                                         </td>
                                         {isAdmin && (
-                                            <td className="p-4 text-gray-300">{getShopName(transaction.shopId)}</td>
+                                            <td className={`p-4 ${resolvedTheme === 'light' ? 'text-gray-900' : 'text-gray-300'}`}>{getShopName(transaction.shopId)}</td>
                                         )}
-                                        <td className="p-4 text-center">
+                                        <td className="p-4 text-center sticky left-0 bg-background/90 backdrop-blur-sm z-10">
                                             <button
                                                 onClick={() => handleStartEdit(transaction)}
                                                 className="text-accent hover:text-blue-400 p-2 transition-colors duration-200"
@@ -745,6 +747,74 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden p-4 space-y-3">
+                    {loading ? (
+                        <div className="text-center p-8">
+                            <div className="inline-flex items-center gap-2">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
+                                <span>{t('transactions.list.loading')}</span>
+                            </div>
+                        </div>
+                    ) : paginatedTransactions.length === 0 ? (
+                        <div className="text-center p-8 text-gray-400">
+                            {t('transactions.list.noResults')}
+                        </div>
+                    ) : (
+                        paginatedTransactions.map((transaction) => (
+                            <div key={transaction.id} className="bg-background border border-gray-700 rounded-lg p-4 space-y-3">
+                                {/* Header with type and amount */}
+                                <div className="flex items-center justify-between">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTransactionTypeStyle(transaction.type)}`}>
+                                        {translateEnum(transaction.type, transactionTypeTranslations, language)}
+                                    </span>
+                                    <span className={`font-mono font-bold text-lg ${
+                                        transaction.type === TransactionType.SALE ? 'text-green-400' :
+                                        transaction.type === TransactionType.TRANSFER ? 'text-blue-300' :
+                                        'text-red-400'
+                                    }`}>
+                                        {formatCurrency(transaction.totalAmount)}
+                                    </span>
+                                </div>
+
+                                {/* Context and description */}
+                                <div>
+                                    <p className="text-text-secondary text-sm">{getTransactionContextName(transaction)}</p>
+                                    <p className="text-text-primary font-medium">{transaction.description || '-'}</p>
+                                </div>
+
+                                {/* Date and Shop (if admin) */}
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-text-secondary">
+                                        {new Date(transaction.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
+                                    </span>
+                                    {isAdmin && (
+                                        <span className="text-text-secondary">{getShopName(transaction.shopId)}</span>
+                                    )}
+                                </div>
+
+                                {/* Action buttons */}
+                                <div className="flex gap-2 pt-2 border-t border-gray-700">
+                                    <button
+                                        onClick={() => handleStartEdit(transaction)}
+                                        className="flex-1 flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/30 text-accent py-2 px-4 rounded-lg transition-colors"
+                                    >
+                                        <EditIcon />
+                                        <span>{t('transactions.actions.edit')}</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteClick(transaction)}
+                                        className="flex-1 flex items-center justify-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 px-4 rounded-lg transition-colors"
+                                    >
+                                        <DeleteIcon />
+                                        <span>{t('transactions.actions.delete')}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
 
                 {/* Pagination */}

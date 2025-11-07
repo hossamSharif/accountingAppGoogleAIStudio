@@ -5,6 +5,7 @@ import StatCard from './StatCard';
 import DailyEntryForm from './DailyEntryForm';
 import RecentTransactions from './RecentTransactions';
 import OfflineTransactionsView from './OfflineTransactionsView';
+import MobileSelect from './MobileSelect';
 import { Transaction, Account, TransactionType, FinancialYear, AccountType, Shop, LogType, User } from '../types';
 import { formatCurrency } from '../utils/formatting';
 import { BalanceCalculator } from '../services/balanceCalculator';
@@ -12,6 +13,14 @@ import { useTranslation } from '../i18n/useTranslation';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { OfflineManager } from '../services/offlineManager';
 import { SyncService } from '../services/syncService';
+
+// Helper function to format date in YYYY-MM-DD using local timezone
+const formatDateForInput = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 const DollarSignIcon = () => <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01"></path></svg>;
 const ShoppingCartIcon = () => <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>;
@@ -47,14 +56,6 @@ const DateNavigator: React.FC<{selectedDate: Date, setSelectedDate: (date: Date)
     const today = new Date();
     today.setHours(23, 59, 59, 999); // Compare with end of today
     const isFuture = selectedDate >= today;
-
-    // Helper function to format date in YYYY-MM-DD using local timezone
-    const formatDateForInput = (date: Date): string => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
 
     const handleDateChange = (days: number) => {
         const newDate = new Date(selectedDate);
@@ -175,15 +176,25 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransactions, ac
         });
 
         // Filter transactions from financial year start to selected date
-        const selectedDateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const selectedDateStr = formatDateForInput(selectedDate); // YYYY-MM-DD format
         const filteredTransactions = allTransactions.filter(transaction => {
+            // Normalize transaction date (handle both old ISO format and new date-only format)
+            const transactionDateStr = transaction.date.includes('T')
+                ? transaction.date.split('T')[0]  // Old format: extract date part from ISO
+                : transaction.date;  // New format: already date-only
+
             if (openFinancialYear) {
+                // Normalize financial year dates too
+                const fyStartStr = openFinancialYear.startDate.includes('T')
+                    ? openFinancialYear.startDate.split('T')[0]
+                    : openFinancialYear.startDate;
+
                 // Only include transactions within financial year period and up to selected date
-                return transaction.date >= openFinancialYear.startDate &&
-                       transaction.date <= selectedDateStr;
+                return transactionDateStr >= fyStartStr &&
+                       transactionDateStr <= selectedDateStr;
             }
             // Fallback: if no FY is open, include transactions up to selected date
-            return transaction.date <= selectedDateStr;
+            return transactionDateStr <= selectedDateStr;
         });
 
         // Process filtered transactions to calculate balance
@@ -313,24 +324,20 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, allTransactions, ac
             {/* Shop Selector for Admin */}
             {user?.role === 'admin' && activeShop && shops && onSelectShop && (
                 <div className="bg-surface p-4 rounded-lg shadow-md">
-                    <label className="block text-sm font-medium text-text-secondary mb-2">
-                        {t('common.ui.selectShop')}
-                    </label>
-                    <div className="relative">
-                        <select
-                            value={activeShop.id}
-                            onChange={handleShopChange}
-                            className="w-full bg-background border border-gray-600 rounded-lg py-3 px-4 text-text-primary focus:ring-primary focus:border-primary appearance-none pr-10"
-                            aria-label="Select Shop"
-                        >
-                            {activeShops.map(shop => (
-                                <option key={shop.id} value={shop.id}>{shop.name}</option>
-                            ))}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-gray-400">
-                            <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                        </div>
-                    </div>
+                    <MobileSelect
+                        label={t('common.ui.selectShop')}
+                        value={activeShop.id}
+                        onChange={(shopId) => {
+                            const selectedShop = activeShops.find(s => s.id === shopId);
+                            if (selectedShop) {
+                                onSelectShop(selectedShop);
+                            }
+                        }}
+                        options={activeShops.map(shop => ({
+                            value: shop.id,
+                            label: shop.name
+                        }))}
+                    />
                 </div>
             )}
 

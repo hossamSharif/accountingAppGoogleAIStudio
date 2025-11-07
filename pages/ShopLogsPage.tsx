@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Log, LogType, User, Shop } from '../types';
+import MobileSelect from '../components/MobileSelect';
 import { useTranslation } from '../i18n/useTranslation';
 import { translateEnum, logTypeTranslations } from '../i18n/enumTranslations';
 import { getBilingualText } from '../utils/bilingual';
@@ -259,19 +260,19 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                     </button>
 
                     {/* Log Type Filter */}
-                    <div className="flex gap-2 items-center">
-                        <label htmlFor="logFilterAdmin" className="text-text-secondary">{t('logs.filters.type')}:</label>
-                        <select
-                            id="logFilterAdmin"
+                    <div className="min-w-[200px]">
+                        <MobileSelect
+                            label={t('logs.filters.type')}
                             value={logFilter}
-                            onChange={(e) => setLogFilter(e.target.value as LogType | 'ALL')}
-                            className="bg-surface border border-gray-600 rounded-lg py-2 px-4 text-text-primary focus:ring-primary focus:border-primary"
-                        >
-                            <option value="ALL">{t('logs.filters.allTypes')}</option>
-                            {logTypes.map(type => (
-                                <option key={type} value={type}>{translateEnum(type as LogType, logTypeTranslations, language)}</option>
-                            ))}
-                        </select>
+                            onChange={(value) => setLogFilter(value as LogType | 'ALL')}
+                            options={[
+                                { value: 'ALL', label: t('logs.filters.allTypes') },
+                                ...logTypes.map(type => ({
+                                    value: type,
+                                    label: translateEnum(type as LogType, logTypeTranslations, language)
+                                }))
+                            ]}
+                        />
                     </div>
                 </div>
             </div>
@@ -316,23 +317,26 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                 </div>
             )}
 
-            <div className="bg-surface p-6 rounded-lg shadow-lg">
-                <div className="overflow-x-auto">
-                    {isAdmin && filteredLogs.length > 0 && (
-                        <div className="mb-4 pb-4 border-b border-gray-700">
-                            <label className="flex items-center gap-2 cursor-pointer hover:bg-background/30 p-2 rounded transition-colors w-fit">
-                                <input
-                                    type="checkbox"
-                                    checked={allSelected}
-                                    onChange={handleToggleSelectAll}
-                                    className="w-4 h-4 rounded border-gray-600 bg-background text-accent focus:ring-2 focus:ring-accent cursor-pointer"
-                                />
-                                <span className="text-text-primary font-medium">
-                                    {allSelected ? t('common.actions.deselectAll') : t('common.actions.selectAll')}
-                                </span>
-                            </label>
-                        </div>
-                    )}
+            <div className="bg-surface p-4 md:p-6 rounded-lg shadow-lg">
+                {/* Select All Checkbox - Desktop and Mobile */}
+                {isAdmin && filteredLogs.length > 0 && (
+                    <div className="mb-4 pb-4 border-b border-gray-700">
+                        <label className="flex items-center gap-2 cursor-pointer hover:bg-background/30 p-2 rounded transition-colors w-fit">
+                            <input
+                                type="checkbox"
+                                checked={allSelected}
+                                onChange={handleToggleSelectAll}
+                                className="w-4 h-4 rounded border-gray-600 bg-background text-accent focus:ring-2 focus:ring-accent cursor-pointer"
+                            />
+                            <span className="text-text-primary font-medium">
+                                {allSelected ? t('common.actions.deselectAll') : t('common.actions.selectAll')}
+                            </span>
+                        </label>
+                    </div>
+                )}
+
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-right">
                         <thead>
                             <tr className="border-b border-gray-700 text-text-secondary">
@@ -385,6 +389,55 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                    {filteredLogs.length === 0 ? (
+                        <div className="text-center p-8 text-text-secondary">
+                            {selectedShopIds.length === 0 && !showAllShops
+                                ? t('logs.list.selectShop')
+                                : t('logs.list.empty')}
+                        </div>
+                    ) : (
+                        filteredLogs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((log) => (
+                            <div key={log.id} className={`bg-background border rounded-lg p-4 space-y-3 ${selectedLogIds.has(log.id) ? 'border-accent ring-2 ring-accent' : 'border-gray-700'}`}>
+                                {/* Header with icon, type, and checkbox */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <LogTypeIcon type={log.type} />
+                                        <span className="font-medium text-text-primary">
+                                            {translateEnum(log.type, logTypeTranslations, language)}
+                                        </span>
+                                    </div>
+                                    {isAdmin && (
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedLogIds.has(log.id)}
+                                            onChange={() => handleToggleLogSelection(log.id)}
+                                            className="w-5 h-5 rounded border-gray-600 bg-background text-accent focus:ring-2 focus:ring-accent cursor-pointer"
+                                        />
+                                    )}
+                                </div>
+
+                                {/* User and Shop info */}
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-text-primary">{getUserName(log.userId)}</span>
+                                    {showShopColumn && (
+                                        <span className="inline-block px-2 py-1 rounded bg-primary/20 text-primary text-xs">
+                                            {getShopName(log.shopId)}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Message */}
+                                <p className="text-text-secondary">{renderMessage(log)}</p>
+
+                                {/* Timestamp */}
+                                <p className="text-xs text-text-secondary">{formatRelativeTime(log.timestamp, language)}</p>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
         </div>

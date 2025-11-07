@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Account, Transaction, Shop, TransactionType, User } from '../types';
 import { formatCurrency } from '../utils/formatting';
 import { exportTableToPDFEnhanced } from '../utils/pdfExportEnhanced';
+import MobileSelect from '../components/MobileSelect';
 import { useTranslation } from '../i18n/useTranslation';
 import { getBilingualText } from '../utils/bilingual';
 
@@ -42,14 +43,15 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
 
     const accountOptions = useMemo(() => {
         const parentAccounts = filteredAccounts.filter(a => !a.parentId).sort((a,b) => a.name.localeCompare(b.name));
-        // Fix: Changed JSX.Element to React.ReactElement to resolve namespace issue.
-        const options: React.ReactElement[] = [];
+        const options: Array<{ value: string; label: string }> = [];
+
         parentAccounts.forEach(parent => {
             const parentName = getBilingualText(parent.name, parent.nameEn, language);
-            options.push(<option key={parent.id} value={parent.id} className="font-bold">{parentName}</option>);
+            options.push({ value: parent.id, label: parentName });
+
             filteredAccounts.filter(a => a.parentId === parent.id).sort((a,b) => a.name.localeCompare(b.name)).forEach(child => {
                 const childName = getBilingualText(child.name, child.nameEn, language);
-                options.push(<option key={child.id} value={child.id}>&nbsp;&nbsp;&nbsp;{childName}</option>);
+                options.push({ value: child.id, label: `   ${childName}` }); // Indentation for child accounts
             });
         });
         return options;
@@ -230,32 +232,33 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
             {/* Shop Selector for Admin */}
             {currentUser.role === 'admin' && shops.length > 0 && (
                 <div className="bg-surface p-4 rounded-lg shadow-md mb-6">
-                    <label className="text-sm text-text-secondary block mb-1">{t('statements.selectShop')}</label>
-                    <select
+                    <MobileSelect
+                        label={t('statements.selectShop')}
                         value={selectedShopId}
-                        onChange={e => {
-                            setSelectedShopId(e.target.value);
+                        onChange={(value) => {
+                            setSelectedShopId(value);
                             setSelectedAccountId(''); // Reset account selection when shop changes
                         }}
-                        className="w-full bg-background border border-gray-600 rounded-lg py-2 px-4 focus:ring-primary focus:border-primary"
-                    >
-                        <option value="">{t('statements.allShops')}</option>
-                        {shops.filter(s => s.isActive).map(shop => (
-                            <option key={shop.id} value={shop.id}>
-                                {getBilingualText(shop.name, shop.nameEn, language)}
-                            </option>
-                        ))}
-                    </select>
+                        options={[
+                            { value: '', label: t('statements.allShops') },
+                            ...shops.filter(s => s.isActive).map(shop => ({
+                                value: shop.id,
+                                label: getBilingualText(shop.name, shop.nameEn, language)
+                            }))
+                        ]}
+                    />
                 </div>
             )}
 
             <div className="bg-surface p-4 rounded-lg shadow-md flex gap-4 flex-wrap items-end">
-                <div className="flex-grow">
-                    <label className="text-sm text-text-secondary block mb-1">{t('statements.selectAccount')}</label>
-                    <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} className="w-full bg-background border border-gray-600 rounded-lg py-2 px-4 focus:ring-primary focus:border-primary">
-                        <option value="">{t('statements.selectAccountPlaceholder')}</option>
-                        {accountOptions}
-                    </select>
+                <div className="flex-grow min-w-[200px]">
+                    <MobileSelect
+                        label={t('statements.selectAccount')}
+                        value={selectedAccountId}
+                        onChange={(value) => setSelectedAccountId(value)}
+                        placeholder={t('statements.selectAccountPlaceholder')}
+                        options={accountOptions}
+                    />
                 </div>
                 <div>
                     <label className="text-sm text-text-secondary block mb-1">{t('statements.filterType.label')}</label>
@@ -287,9 +290,11 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                         <div className="bg-surface p-4 rounded-lg text-center"><p className="text-sm text-text-secondary">{t('statements.summary.closingBalance')}</p><p className="text-xl font-bold text-accent">{formatCurrency(statementData.closingBalance)}</p></div>
                     </div>
 
-                    <div className="bg-surface p-6 rounded-lg shadow-lg">
+                    <div className="bg-surface p-4 md:p-6 rounded-lg shadow-lg">
                         <h2 className="text-xl font-bold mb-4">{t('statements.table.title')}</h2>
-                        <div className="overflow-x-auto">
+
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-right">
                                 <thead><tr className="border-b border-gray-700 text-text-secondary"><th className="p-3">{t('statements.table.columns.date')}</th><th className="p-3">{t('statements.table.columns.context')}</th><th className="p-3 text-left">{t('statements.table.columns.debit')}</th><th className="p-3 text-left">{t('statements.table.columns.credit')}</th><th className="p-3 text-left">{t('statements.table.columns.balance')}</th></tr></thead>
                                 <tbody>
@@ -307,6 +312,39 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="md:hidden space-y-3">
+                            {statementData.rows.length === 0 ? (
+                                <div className="text-center p-8 text-text-secondary">{t('statements.table.empty')}</div>
+                            ) : (
+                                statementData.rows.map(row => (
+                                    <div key={row.id} className="bg-background border border-gray-700 rounded-lg p-4 space-y-2">
+                                        {/* Date and Context */}
+                                        <div className="border-b border-gray-700 pb-2">
+                                            <p className="text-text-secondary text-sm">{row.date}</p>
+                                            <p className="text-text-primary font-medium">{row.context}</p>
+                                        </div>
+
+                                        {/* Debit, Credit, Balance */}
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div>
+                                                <p className="text-xs text-text-secondary">{t('statements.table.columns.debit')}</p>
+                                                <p className="font-mono text-green-400 font-bold">{row.debit > 0 ? formatCurrency(row.debit) : '-'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-text-secondary">{t('statements.table.columns.credit')}</p>
+                                                <p className="font-mono text-red-400 font-bold">{row.credit > 0 ? formatCurrency(row.credit) : '-'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-text-secondary">{t('statements.table.columns.balance')}</p>
+                                                <p className="font-mono text-accent font-bold">{formatCurrency(row.balance)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>

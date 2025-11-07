@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Account, AccountType, AccountClassification, AccountNature, User, Shop } from '../types';
+import MobileSelect from './MobileSelect';
 import { useTranslation } from '../i18n/useTranslation';
 import { translateEnum, accountTypeTranslations, accountClassificationTranslations, accountNatureTranslations } from '../i18n/enumTranslations';
 import { getBilingualText } from '../utils/bilingual';
@@ -26,8 +27,33 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
     const [classification, setClassification] = useState<AccountClassification | ''>('');
     const [nature, setNature] = useState<AccountNature | ''>('');
     const [type, setType] = useState<AccountType | ''>('');
-    
-    const parentAccountOptions = accounts.filter(acc => !acc.parentId).sort((a,b) => a.accountCode.localeCompare(b.accountCode));
+
+    // Helper function to get account depth (optimized to use stored level field)
+    const getAccountDepth = (account: Account): number => {
+        // Use stored level if available (performance optimization)
+        if (account.level) {
+            return account.level;
+        }
+
+        // Fallback to calculation for backwards compatibility with existing data
+        let depth = 1;
+        let current = account;
+        while (current.parentId) {
+            depth++;
+            const parent = accounts.find(a => a.id === current.parentId);
+            if (!parent) break;
+            current = parent;
+        }
+        return depth;
+    };
+
+    // Get all accounts that can be parents (depth <= 2, so we can create level 3 under them)
+    const parentAccountOptions = accounts
+        .filter(acc => {
+            const depth = getAccountDepth(acc);
+            return depth <= 2; // Allow main accounts (1) and sub1 accounts (2) as parents
+        })
+        .sort((a, b) => a.accountCode.localeCompare(b.accountCode));
 
     useEffect(() => {
         if (!isOpen) return;
@@ -151,22 +177,19 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                     <div className="space-y-4">
                         {!isMainAccount && (
                             <div>
-                                <label htmlFor="parentId" className="block text-sm font-medium text-text-secondary mb-1">
-                                    {t('accounts.form.parentAccount')}
-                                </label>
-                                <select
-                                    id="parentId"
+                                <MobileSelect
+                                    label={t('accounts.form.parentAccount')}
                                     value={parentId}
-                                    onChange={(e) => setParentId(e.target.value)}
-                                    className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                                    required
-                                >
-                                    {parentAccountOptions.map(pAcc => (
-                                        <option key={pAcc.id} value={pAcc.id}>
-                                            {getBilingualText(pAcc.name, pAcc.nameEn, language)} ({pAcc.accountCode})
-                                        </option>
-                                    ))}
-                                </select>
+                                    onChange={(value) => setParentId(value)}
+                                    options={parentAccountOptions.map(pAcc => {
+                                        const depth = getAccountDepth(pAcc);
+                                        const indent = depth > 1 ? '— '.repeat(depth - 1) : '';
+                                        return {
+                                            value: pAcc.id,
+                                            label: `${indent}${getBilingualText(pAcc.name, pAcc.nameEn, language)} (${pAcc.accountCode})`
+                                        };
+                                    })}
+                                />
                             </div>
                         )}
                         <div className="grid grid-cols-2 gap-4">
@@ -207,18 +230,14 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                                     {t('accounts.form.classification')} {canEditParentFields ? '' : `(${t('accounts.form.automatic')})`}
                                 </label>
                                 {canEditParentFields ? (
-                                    <select
+                                    <MobileSelect
                                         value={classification}
-                                        onChange={(e) => setClassification(e.target.value as AccountClassification)}
-                                        className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
-                                        required
-                                    >
-                                        {Object.values(AccountClassification).map((classValue) => (
-                                            <option key={classValue} value={classValue}>
-                                                {translateEnum(classValue, accountClassificationTranslations, language)}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onChange={(value) => setClassification(value as AccountClassification)}
+                                        options={Object.values(AccountClassification).map((classValue) => ({
+                                            value: classValue,
+                                            label: translateEnum(classValue, accountClassificationTranslations, language)
+                                        }))}
+                                    />
                                 ) : (
                                     <input
                                         type="text"
@@ -233,18 +252,14 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                                     {t('accounts.form.nature')} {canEditParentFields ? '' : `(${t('accounts.form.automatic')})`}
                                 </label>
                                 {canEditParentFields ? (
-                                    <select
+                                    <MobileSelect
                                         value={nature}
-                                        onChange={(e) => setNature(e.target.value as AccountNature)}
-                                        className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
-                                        required
-                                    >
-                                        {Object.values(AccountNature).map((natureValue) => (
-                                            <option key={natureValue} value={natureValue}>
-                                                {translateEnum(natureValue, accountNatureTranslations, language)}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onChange={(value) => setNature(value as AccountNature)}
+                                        options={Object.values(AccountNature).map((natureValue) => ({
+                                            value: natureValue,
+                                            label: translateEnum(natureValue, accountNatureTranslations, language)
+                                        }))}
+                                    />
                                 ) : (
                                     <input
                                         type="text"
@@ -259,21 +274,15 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, ac
                         {/* Account Type field - only for parent accounts when admin */}
                         {canEditParentFields && (
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">
-                                    {t('accounts.form.type')}
-                                </label>
-                                <select
+                                <MobileSelect
+                                    label={t('accounts.form.type')}
                                     value={type}
-                                    onChange={(e) => setType(e.target.value as AccountType)}
-                                    className="w-full bg-background border border-gray-600 rounded-md p-2 focus:ring-primary focus:border-primary"
-                                    required
-                                >
-                                    {Object.values(AccountType).map((typeValue) => (
-                                        <option key={typeValue} value={typeValue}>
-                                            {translateEnum(typeValue, accountTypeTranslations, language)}
-                                        </option>
-                                    ))}
-                                </select>
+                                    onChange={(value) => setType(value as AccountType)}
+                                    options={Object.values(AccountType).map((typeValue) => ({
+                                        value: typeValue,
+                                        label: translateEnum(typeValue, accountTypeTranslations, language)
+                                    }))}
+                                />
                             </div>
                         )}
 
