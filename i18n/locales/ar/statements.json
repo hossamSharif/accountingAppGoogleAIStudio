@@ -29,12 +29,22 @@
       "context": "البيان",
       "debit": "مدين",
       "credit": "دائن",
-      "balance": "الرصيد"
+      "balance": "الرصيد",
+      "actions": "إجراءات"
     },
     "empty": "لا توجد حركات في الفترة المحددة."
   },
   "actions": {
-    "exportPDF": "تصدير PDF"
+    "exportPDF": "تصدير PDF",
+    "edit": "تعديل",
+    "delete": "حذف"
+  },
+  "deleteConfirmation": {
+    "title": "حذف الحركة",
+    "message": "هل أنت متأكد من حذف هذه الحركة؟",
+    "warning": "لا يمكن التراجع عن هذا الإجراء.",
+    "cancel": "إلغاء",
+    "confirm": "حذف"
   },
   "messages": {
     "selectAccountPrompt": "الرجاء اختيار حساب وتحديد فترة لعرض كشف الحساب.",

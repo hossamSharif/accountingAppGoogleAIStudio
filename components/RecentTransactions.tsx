@@ -449,15 +449,15 @@ ${dailyProfit >= 0 ? '✅' : '⚠️'} الربح: ${formatCurrencyForShare(dail
             {/* Desktop Table View - Hidden on mobile */}
             <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-right">
-                    <thead>
-                        <tr className="border-b border-gray-700 text-text-secondary">
+                    <thead className="border-2 text-base font-semibold" style={{ backgroundColor: 'var(--color-surface-hover)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
+                        <tr>
                             <th className="p-3">{t('transactions.list.columns.date')}</th>
                             <th className="p-3">{t('transactions.list.columns.type')}</th>
                             <th className="p-3">{t('transactions.list.columns.context')}</th>
                             <th className="p-3">{t('transactions.list.columns.description')}</th>
                             <th className="p-3">{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</th>
                             <th className="p-3 text-left">{t('transactions.list.columns.amount')}</th>
-                            <th className="p-3 text-center sticky left-0 bg-surface z-10">{t('transactions.list.columns.actions')}</th>
+                            <th className="p-3 text-center sticky left-0 z-10" style={{ backgroundColor: 'var(--color-surface-hover)' }}>{t('transactions.list.columns.actions')}</th>
                         </tr>
                     </thead>
                     <tbody>

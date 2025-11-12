@@ -619,7 +619,18 @@ const AppContent: React.FC = () => {
             case Page.ACCOUNTS:
                 return <AccountsPage />;
             case Page.STATEMENT:
-                return <StatementPage accounts={accounts} transactions={transactions} activeShop={activeShop} shops={shops} currentUser={currentUser} />;
+                return <StatementPage
+                    accounts={accounts}
+                    transactions={transactions}
+                    activeShop={activeShop}
+                    shops={shops}
+                    currentUser={currentUser}
+                    onUpdateTransaction={handleUpdateTransaction}
+                    onDeleteTransaction={handleDeleteTransaction}
+                    onAddAccount={handleAddAccount}
+                    openFinancialYear={financialYears.find(fy => fy.shopId === activeShop?.id && fy.status === 'open')}
+                    financialYears={financialYears}
+                />;
             case Page.TRANSACTIONS:
                 return <TransactionsPage user={currentUser} activeShop={activeShop} shops={shops} accounts={accounts} onNavigate={setPage} onAddLog={handleAddLog} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} financialYears={financialYears} onAddAccount={handleAddAccount} />;
             case Page.SETTINGS:

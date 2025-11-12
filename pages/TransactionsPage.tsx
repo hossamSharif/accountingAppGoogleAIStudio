@@ -676,15 +676,15 @@ const TransactionsPage: React.FC<TransactionsPageProps> = ({
                 {/* Desktop Table View */}
                 <div className="hidden md:block overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-background">
-                            <tr className="text-gray-400">
+                        <thead className="border-2 text-base font-semibold" style={{ backgroundColor: 'var(--color-surface-hover)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
+                            <tr>
                                 <th className="p-4 text-right">{t('transactions.list.columns.date')}</th>
                                 <th className="p-4 text-right">{t('transactions.list.columns.type')}</th>
                                 <th className="p-4 text-right">{t('transactions.list.columns.context')}</th>
                                 <th className="p-4 text-right">{t('transactions.list.columns.description')}</th>
                                 <th className="p-4 text-left">{t('transactions.list.columns.amount')}</th>
                                 {isAdmin && <th className="p-4 text-right">{t('transactions.list.columns.shop')}</th>}
-                                <th className="p-4 text-center sticky left-0 bg-background z-10">{t('transactions.list.columns.actions')}</th>
+                                <th className="p-4 text-center sticky left-0 z-10" style={{ backgroundColor: 'var(--color-surface-hover)' }}>{t('transactions.list.columns.actions')}</th>
                             </tr>
                         </thead>
                         <tbody>

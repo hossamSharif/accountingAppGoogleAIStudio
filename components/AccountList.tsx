@@ -183,8 +183,8 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, transactions, onEdi
         <div className="bg-surface p-6 rounded-lg shadow-lg">
             <div className="overflow-x-auto">
                 <table className="w-full text-right">
-                    <thead>
-                        <tr className="border-b text-text-secondary" style={{ borderColor: 'var(--color-border)' }}>
+                    <thead className="border-2 text-base font-semibold" style={{ backgroundColor: 'var(--color-surface-hover)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
+                        <tr>
                             <th className="p-3">{t('accounts.table.columns.code')}</th>
                             <th className="p-3">{t('accounts.table.columns.name')}</th>
                             <th className="p-3">{t('accounts.table.columns.classification')}</th>

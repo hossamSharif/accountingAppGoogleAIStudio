@@ -182,44 +182,45 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
     }, [selectedFyId, shopFinancialYears, t]);
 
     const chartData = useMemo(() => {
-        const monthlyData: { [key: string]: { sales: number, purchases: number, expenses: number } } = {};
+        const monthlyData: { [key: string]: { sales: number, purchases: number, expenses: number, sortKey: string } } = {};
         const locale = language === 'ar' ? 'ar-EG' : 'en-US';
 
         filteredTransactions.forEach(t => {
-            const monthKey = new Date(t.date).toLocaleString(locale, { month: 'short', year: 'numeric' });
+            const date = new Date(t.date);
+            const monthKey = date.toLocaleString(locale, { month: 'short', year: 'numeric' });
+            const sortKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM format for sorting
+
             if (!monthlyData[monthKey]) {
-                monthlyData[monthKey] = { sales: 0, purchases: 0, expenses: 0 };
+                monthlyData[monthKey] = { sales: 0, purchases: 0, expenses: 0, sortKey };
             }
             if (t.type === TransactionType.SALE) monthlyData[monthKey].sales += t.totalAmount;
             if (t.type === TransactionType.PURCHASE) monthlyData[monthKey].purchases += t.totalAmount;
             if (t.type === TransactionType.EXPENSE) monthlyData[monthKey].expenses += t.totalAmount;
         });
 
-        const sortedKeys = Object.keys(monthlyData).sort((a,b) => {
-            const [aMonthStr, aYearStr] = a.split(' ');
-            const [bMonthStr, bYearStr] = b.split(' ');
-            const monthMap: {[key: string]: number} = language === 'ar'
-                ? {'يناير': 1,'فبراير': 2,'مارس': 3,'أبريل': 4,'مايو': 5,'يونيو': 6,'يوليو': 7,'أغسطس': 8,'سبتمبر': 9,'أكتوبر': 10,'نوفمبر': 11,'ديسمبر': 12}
-                : {'Jan': 1,'Feb': 2,'Mar': 3,'Apr': 4,'May': 5,'Jun': 6,'Jul': 7,'Aug': 8,'Sep': 9,'Oct': 10,'Nov': 11,'Dec': 12};
-            const dateA = new Date(parseInt(aYearStr), monthMap[aMonthStr] - 1);
-            const dateB = new Date(parseInt(bYearStr), monthMap[bMonthStr] - 1);
-            return dateA.getTime() - dateB.getTime();
+        const sortedKeys = Object.keys(monthlyData).sort((a, b) => {
+            return monthlyData[a].sortKey.localeCompare(monthlyData[b].sortKey);
         });
 
         return sortedKeys.map(key => ({
             month: key,
-            ...monthlyData[key]
+            sales: monthlyData[key].sales,
+            purchases: monthlyData[key].purchases,
+            expenses: monthlyData[key].expenses
         }));
     }, [filteredTransactions, language]);
 
     const incomeChartData = useMemo(() => {
-        const monthlyIncomeData: { [key: string]: { income: number, profit: number } } = {};
+        const monthlyIncomeData: { [key: string]: { income: number, profit: number, sortKey: string } } = {};
         const locale = language === 'ar' ? 'ar-EG' : 'en-US';
 
         filteredTransactions.forEach(t => {
-            const monthKey = new Date(t.date).toLocaleString(locale, { month: 'short', year: 'numeric' });
+            const date = new Date(t.date);
+            const monthKey = date.toLocaleString(locale, { month: 'short', year: 'numeric' });
+            const sortKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM format for sorting
+
             if (!monthlyIncomeData[monthKey]) {
-                monthlyIncomeData[monthKey] = { income: 0, profit: 0 };
+                monthlyIncomeData[monthKey] = { income: 0, profit: 0, sortKey };
             }
             if (t.type === TransactionType.SALE) {
                 monthlyIncomeData[monthKey].income += t.totalAmount;
@@ -232,15 +233,8 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
             }
         });
 
-        const sortedKeys = Object.keys(monthlyIncomeData).sort((a,b) => {
-            const [aMonthStr, aYearStr] = a.split(' ');
-            const [bMonthStr, bYearStr] = b.split(' ');
-            const monthMap: {[key: string]: number} = language === 'ar'
-                ? {'يناير': 1,'فبراير': 2,'مارس': 3,'أبريل': 4,'مايو': 5,'يونيو': 6,'يوليو': 7,'أغسطس': 8,'سبتمبر': 9,'أكتوبر': 10,'نوفمبر': 11,'ديسمبر': 12}
-                : {'Jan': 1,'Feb': 2,'Mar': 3,'Apr': 4,'May': 5,'Jun': 6,'Jul': 7,'Aug': 8,'Sep': 9,'Oct': 10,'Nov': 11,'Dec': 12};
-            const dateA = new Date(parseInt(aYearStr), monthMap[aMonthStr] - 1);
-            const dateB = new Date(parseInt(bYearStr), monthMap[bMonthStr] - 1);
-            return dateA.getTime() - dateB.getTime();
+        const sortedKeys = Object.keys(monthlyIncomeData).sort((a, b) => {
+            return monthlyIncomeData[a].sortKey.localeCompare(monthlyIncomeData[b].sortKey);
         });
 
         return sortedKeys.map(key => {
@@ -347,7 +341,7 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
                 <h3 className="text-xl font-bold mb-4">{t('analytics.charts.revenueVsExpenses')}</h3>
                 {incomeChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
-                        <AreaChart data={incomeChartData} margin={{ top: 10, right: 20, left: -10, bottom: 5 }}>
+                        <AreaChart data={incomeChartData} margin={{ top: 10, right: 20, left: -10, bottom: 70 }}>
                             <defs>
                                 <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
@@ -359,7 +353,16 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                            <XAxis dataKey="month" stroke="#9CA3AF" />
+                            <XAxis
+                                dataKey="month"
+                                stroke="#9CA3AF"
+                                interval="preserveStartEnd"
+                                angle={-45}
+                                textAnchor="end"
+                                height={80}
+                                dy={10}
+                                tick={{ fontSize: 10 }}
+                            />
                             <YAxis stroke="#9CA3AF" tickFormatter={value => formatNumber(value as number, 0)} />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend wrapperStyle={{ direction: 'ltr' }} />
@@ -394,9 +397,18 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ shops, accounts, transact
                  <div className="lg:col-span-3 bg-surface p-6 rounded-lg shadow-lg">
                     <h3 className="text-xl font-bold mb-4">{t('analytics.charts.monthlyTrend')}</h3>
                     <ResponsiveContainer width="100%" height={400}>
-                        <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                        <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 80 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                            <XAxis dataKey="month" stroke="#9CA3AF" />
+                            <XAxis
+                                dataKey="month"
+                                stroke="#9CA3AF"
+                                interval="preserveStartEnd"
+                                angle={-45}
+                                textAnchor="end"
+                                height={80}
+                                dy={10}
+                                tick={{ fontSize: 10 }}
+                            />
                             <YAxis stroke="#9CA3AF" tickFormatter={value => formatNumber(value as number, 0)}/>
                             <Tooltip content={<CustomTooltip />} />
                             <Legend wrapperStyle={{ direction: 'ltr' }}/>

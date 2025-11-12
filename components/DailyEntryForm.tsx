@@ -398,6 +398,7 @@ const DailyEntryForm: React.FC<DailyEntryFormProps> = ({ isOpen, onClose, onAddT
             }
             finalType = TransactionType.TRANSFER; // Both are handled as transfers
             finalTotalAmount = amountNum;
+            finalPartyId = paymentForm.partyId; // Link payment to customer/supplier
             const partyAccount = accounts.find(a => a.id === paymentForm.partyId);
 
             if (formMode === 'Customer Payment') {

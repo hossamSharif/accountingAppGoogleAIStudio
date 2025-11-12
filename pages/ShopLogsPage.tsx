@@ -338,8 +338,8 @@ const ShopLogsPage: React.FC<ShopLogsPageProps> = ({ logs, users, activeShop, sh
                 {/* Desktop Table View */}
                 <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-right">
-                        <thead>
-                            <tr className="border-b border-gray-700 text-text-secondary">
+                        <thead className="border-2 text-base font-semibold" style={{ backgroundColor: 'var(--color-surface-hover)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
+                            <tr>
                                 {isAdmin && <th className="p-3 w-12"></th>}
                                 <th className="p-3 w-12"></th>
                                 <th className="p-3">{t('logs.list.columns.user')}</th>

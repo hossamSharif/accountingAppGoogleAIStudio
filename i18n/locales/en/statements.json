@@ -29,12 +29,22 @@
       "context": "Description",
       "debit": "Debit",
       "credit": "Credit",
-      "balance": "Balance"
+      "balance": "Balance",
+      "actions": "Actions"
     },
     "empty": "No transactions in the selected period."
   },
   "actions": {
-    "exportPDF": "Export PDF"
+    "exportPDF": "Export PDF",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "deleteConfirmation": {
+    "title": "Delete Transaction",
+    "message": "Are you sure you want to delete this transaction?",
+    "warning": "This action cannot be undone.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
   },
   "messages": {
     "selectAccountPrompt": "Please select an account and specify a period to view the statement.",

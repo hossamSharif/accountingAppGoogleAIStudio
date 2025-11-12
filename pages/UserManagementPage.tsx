@@ -189,13 +189,13 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ users, shops, o
                 {/* Desktop Table View */}
                 <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-right">
-                        <thead>
-                             <tr className="border-b border-gray-700 text-text-secondary">
+                        <thead className="border-2 text-base font-semibold" style={{ backgroundColor: 'var(--color-surface-hover)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
+                             <tr>
                                 <th className="p-3">الاسم الكامل</th>
                                 <th className="p-3">البريد الإلكتروني</th>
                                 <th className="p-3">المتجر المرتبط</th>
                                 <th className="p-3">الحالة</th>
-                                <th className="p-3 text-left sticky left-0 bg-surface z-10">الإجراءات</th>
+                                <th className="p-3 text-left sticky left-0 z-10" style={{ backgroundColor: 'var(--color-surface-hover)' }}>الإجراءات</th>
                             </tr>
                         </thead>
                         <tbody>

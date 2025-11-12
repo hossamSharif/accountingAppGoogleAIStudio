@@ -1,12 +1,27 @@
-import React, { useState, useMemo } from 'react';
-import { Account, Transaction, Shop, TransactionType, User } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Account, Transaction, Shop, TransactionType, User, FinancialYear } from '../types';
 import { formatCurrency } from '../utils/formatting';
 import { exportTableToPDFEnhanced } from '../utils/pdfExportEnhanced';
 import MobileSelect from '../components/MobileSelect';
 import { useTranslation } from '../i18n/useTranslation';
 import { getBilingualText } from '../utils/bilingual';
+import DailyEntryForm from '../components/DailyEntryForm';
 
 const ExportIcon = () => <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>;
+
+const EditIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+    </svg>
+);
+
+const DeleteIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+    </svg>
+);
+
+type FilterType = 'month' | 'week' | 'today' | 'all' | 'custom';
 
 interface StatementPageProps {
     accounts: Account[];
@@ -14,20 +29,89 @@ interface StatementPageProps {
     activeShop: Shop | null;
     shops: Shop[];
     currentUser: User;
+    onUpdateTransaction: (transaction: Transaction) => void;
+    onDeleteTransaction: (transactionId: string) => void;
+    onAddAccount?: (account: Omit<Account, 'id' | 'isActive' | 'shopId'>, forShopId?: string) => Account | null;
+    openFinancialYear?: FinancialYear;
+    financialYears: FinancialYear[];
 }
 
-const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, activeShop, shops, currentUser }) => {
+const StatementPage: React.FC<StatementPageProps> = ({
+    accounts,
+    transactions,
+    activeShop,
+    shops,
+    currentUser,
+    onUpdateTransaction,
+    onDeleteTransaction,
+    onAddAccount,
+    openFinancialYear,
+    financialYears
+}) => {
     const { t, language } = useTranslation();
     const [selectedShopId, setSelectedShopId] = useState<string>(activeShop?.id || '');
     const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-    const [filterType, setFilterType] = useState<'range' | 'day'>('range');
+    const [filterType, setFilterType] = useState<FilterType>('month');
+    const [customStartDate, setCustomStartDate] = useState('');
+    const [customEndDate, setCustomEndDate] = useState('');
+    const [selectedFyId, setSelectedFyId] = useState<string>('period'); // 'period' means use date range filters
 
-    const today = new Date();
-    const monthAgo = new Date(new Date().setMonth(today.getMonth() - 1));
+    // State for edit functionality
+    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-    const [startDate, setStartDate] = useState(monthAgo.toISOString().split('T')[0]);
-    const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]);
-    const [singleDate, setSingleDate] = useState(today.toISOString().split('T')[0]);
+    // State for delete confirmation
+    const [deleteConfirmation, setDeleteConfirmation] = useState<{
+        isOpen: boolean;
+        transactionId: string | null;
+        transactionDescription: string;
+    }>({ isOpen: false, transactionId: null, transactionDescription: '' });
+
+    // Reset financial year filter when shop changes
+    useEffect(() => {
+        setSelectedFyId('period');
+    }, [selectedShopId]);
+
+    // Filter financial years by selected shop
+    const shopFinancialYears = useMemo(() => {
+        if (!selectedShopId) return [];
+        return financialYears
+            .filter(fy => fy.shopId === selectedShopId)
+            .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+    }, [selectedShopId, financialYears]);
+
+    // Calculate date range based on filter type
+    const dateRange = useMemo(() => {
+        const now = new Date();
+        let start = new Date(now);
+        let end = new Date(now);
+        end.setHours(23, 59, 59, 999);
+
+        switch (filterType) {
+            case 'today':
+                start.setHours(0, 0, 0, 0);
+                break;
+            case 'week':
+                const firstDayOfWeek = now.getDate() - now.getDay();
+                start = new Date(now.setDate(firstDayOfWeek));
+                start.setHours(0, 0, 0, 0);
+                break;
+            case 'month':
+                start = new Date(now.getFullYear(), now.getMonth(), 1);
+                start.setHours(0, 0, 0, 0);
+                break;
+            case 'all':
+                return { startDate: null, endDate: null };
+            case 'custom':
+                const customStart = customStartDate ? new Date(customStartDate) : null;
+                if (customStart) customStart.setHours(0, 0, 0, 0);
+                const customEnd = customEndDate ? new Date(customEndDate) : null;
+                if (customEnd) customEnd.setHours(23, 59, 59, 999);
+                return { startDate: customStart, endDate: customEnd };
+        }
+        return { startDate: start, endDate: end };
+    }, [filterType, customStartDate, customEndDate]);
 
     // Filter accounts by selected shop
     const filteredAccounts = useMemo(() => {
@@ -60,10 +144,22 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
     const statementData = useMemo(() => {
         if (!selectedAccountId) return null;
 
-        const rangeStart = new Date(filterType === 'day' ? singleDate : startDate);
-        rangeStart.setHours(0, 0, 0, 0);
-        const rangeEnd = new Date(filterType === 'day' ? singleDate : endDate);
-        rangeEnd.setHours(23, 59, 59, 999);
+        // Determine date range: FY dates take priority over period filters
+        let rangeStart: Date | null = null;
+        let rangeEnd: Date | null = null;
+
+        const selectedFy = shopFinancialYears.find(fy => fy.id === selectedFyId);
+        if (selectedFy) {
+            // Use FY dates
+            rangeStart = new Date(selectedFy.startDate);
+            rangeStart.setHours(0, 0, 0, 0);
+            rangeEnd = new Date(selectedFy.endDate);
+            rangeEnd.setHours(23, 59, 59, 999);
+        } else {
+            // Use period filter dates
+            rangeStart = dateRange.startDate;
+            rangeEnd = dateRange.endDate;
+        }
 
         // Find all child accounts if a parent is selected
         const getChildAccountIds = (parentId: string): string[] => {
@@ -73,7 +169,8 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
         const targetAccountIds = new Set(getChildAccountIds(selectedAccountId));
 
         const relevantTransactions = filteredTransactions.filter(t =>
-            t.entries.some(e => targetAccountIds.has(e.accountId))
+            t.entries.some(e => targetAccountIds.has(e.accountId)) ||
+            targetAccountIds.has(t.partyId || '')
         ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         let openingBalance = 0;
@@ -83,16 +180,19 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
             }
         });
 
-        relevantTransactions.forEach(t => {
-            const tDate = new Date(t.date);
-            if (tDate < rangeStart) {
-                t.entries.forEach(e => {
-                    if (targetAccountIds.has(e.accountId)) {
-                        openingBalance += e.amount;
-                    }
-                });
-            }
-        });
+        // Calculate opening balance only if rangeStart is defined
+        if (rangeStart) {
+            relevantTransactions.forEach(t => {
+                const tDate = new Date(t.date);
+                if (tDate < rangeStart) {
+                    t.entries.forEach(e => {
+                        if (targetAccountIds.has(e.accountId)) {
+                            openingBalance += e.amount;
+                        }
+                    });
+                }
+            });
+        }
 
         let totalDebit = 0;
         let totalCredit = 0;
@@ -104,6 +204,8 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
         };
 
         const rows = relevantTransactions.filter(transaction => {
+            // If rangeStart or rangeEnd is null (filterType === 'all'), include all transactions
+            if (!rangeStart || !rangeEnd) return true;
             const tDate = new Date(transaction.date);
             return tDate >= rangeStart && tDate <= rangeEnd;
         }).map(transaction => {
@@ -111,10 +213,23 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
             let credit = 0;
 
             const entryForThisAccount = transaction.entries.find(e => targetAccountIds.has(e.accountId));
-            const amount = entryForThisAccount ? entryForThisAccount.amount : 0;
 
-            if (amount > 0) debit = amount;
-            else credit = -amount;
+            if (entryForThisAccount) {
+                // Transaction has an entry for this account
+                const amount = entryForThisAccount.amount;
+                if (amount > 0) debit = amount;
+                else credit = -amount;
+            } else if (targetAccountIds.has(transaction.partyId || '')) {
+                // Transaction included via partyId but has no entry (fully-paid sale/purchase)
+                // Show both debit and credit to reflect the transaction activity with net zero balance
+                if (transaction.type === TransactionType.SALE) {
+                    debit = transaction.totalAmount;  // Sale to customer
+                    credit = transaction.totalAmount; // Paid in same transaction
+                } else if (transaction.type === TransactionType.PURCHASE) {
+                    credit = transaction.totalAmount; // Purchase from supplier
+                    debit = transaction.totalAmount;  // Paid in same transaction
+                }
+            }
 
             totalDebit += debit;
             totalCredit += credit;
@@ -142,7 +257,8 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                 context,
                 debit,
                 credit,
-                balance: runningBalance
+                balance: runningBalance,
+                transaction // Preserve the original transaction object for edit/delete operations
             };
         });
 
@@ -150,7 +266,45 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
 
         return { openingBalance, rows, totalDebit, totalCredit, closingBalance };
 
-    }, [selectedAccountId, filterType, singleDate, startDate, endDate, filteredAccounts, filteredTransactions, language, t]);
+    }, [selectedAccountId, filterType, customStartDate, customEndDate, filteredAccounts, filteredTransactions, language, t, selectedFyId, shopFinancialYears, dateRange]);
+
+    // Edit handlers
+    const handleStartEdit = (transaction: Transaction) => {
+        setEditingTransaction(transaction);
+        setSelectedDate(new Date(transaction.date));
+        setShowEditModal(true);
+    };
+
+    const handleCloseEditModal = () => {
+        setShowEditModal(false);
+        setEditingTransaction(null);
+    };
+
+    const handleUpdateTransactionWithRefresh = async (updatedTransaction: Transaction) => {
+        await onUpdateTransaction(updatedTransaction);
+        handleCloseEditModal();
+    };
+
+    // Delete handlers
+    const handleDeleteClick = (transaction: Transaction) => {
+        const description = transaction.description || `${transaction.type} - ${formatCurrency(transaction.totalAmount)}`;
+        setDeleteConfirmation({
+            isOpen: true,
+            transactionId: transaction.id,
+            transactionDescription: description
+        });
+    };
+
+    const confirmDelete = () => {
+        if (deleteConfirmation.transactionId) {
+            onDeleteTransaction(deleteConfirmation.transactionId);
+        }
+        setDeleteConfirmation({ isOpen: false, transactionId: null, transactionDescription: '' });
+    };
+
+    const cancelDelete = () => {
+        setDeleteConfirmation({ isOpen: false, transactionId: null, transactionDescription: '' });
+    };
 
     const handleExportPDF = async () => {
         if (!statementData || !selectedAccountId) return;
@@ -180,16 +334,29 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
 
             // Date range
             const locale = language === 'ar' ? 'ar-SA' : 'en-US';
-            const dateRange = filterType === 'day'
-                ? new Date(singleDate).toLocaleDateString(locale)
-                : `${t('statements.dateLabels.from')} ${new Date(startDate).toLocaleDateString(locale)} ${t('statements.dateLabels.to')} ${new Date(endDate).toLocaleDateString(locale)}`;
+            let dateRangeText = '';
+
+            const selectedFy = shopFinancialYears.find(fy => fy.id === selectedFyId);
+            if (selectedFy) {
+                dateRangeText = `${selectedFy.name} (${new Date(selectedFy.startDate).toLocaleDateString(locale)} - ${new Date(selectedFy.endDate).toLocaleDateString(locale)})`;
+            } else if (filterType === 'all') {
+                dateRangeText = t('analytics.periods.all');
+            } else if (filterType === 'today') {
+                dateRangeText = new Date().toLocaleDateString(locale);
+            } else if (filterType === 'week') {
+                dateRangeText = t('analytics.periods.week');
+            } else if (filterType === 'month') {
+                dateRangeText = t('analytics.periods.month');
+            } else if (filterType === 'custom' && customStartDate && customEndDate) {
+                dateRangeText = `${t('statements.dateLabels.from')} ${new Date(customStartDate).toLocaleDateString(locale)} ${t('statements.dateLabels.to')} ${new Date(customEndDate).toLocaleDateString(locale)}`;
+            }
 
             // Get the selected shop for export
             const selectedShop = selectedShopId ? shops.find(s => s.id === selectedShopId) : null;
 
             // Subtitle
             const shopName = selectedShop ? getBilingualText(selectedShop.name, selectedShop.nameEn, language) : (currentUser.role === 'admin' && !selectedShopId ? t('statements.allShops') : '');
-            const subtitle = shopName ? `${shopName} - ${dateRange}` : dateRange;
+            const subtitle = shopName ? `${shopName} - ${dateRangeText}` : dateRangeText;
 
             // Summary data
             const summary = [
@@ -260,21 +427,41 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                         options={accountOptions}
                     />
                 </div>
-                <div>
-                    <label className="text-sm text-text-secondary block mb-1">{t('statements.filterType.label')}</label>
-                    <div className="flex bg-background rounded-lg border border-gray-600 p-1">
-                        <button onClick={() => setFilterType('range')} className={`px-4 py-1 rounded-md text-sm ${filterType==='range' ? 'bg-primary' : ''}`}>{t('statements.filterType.range')}</button>
-                        <button onClick={() => setFilterType('day')} className={`px-4 py-1 rounded-md text-sm ${filterType==='day' ? 'bg-primary' : ''}`}>{t('statements.filterType.day')}</button>
+                {selectedShopId && (
+                    <div className="flex-1 min-w-[200px]">
+                        <MobileSelect
+                            label={t('analytics.periods.financialYear')}
+                            value={selectedFyId}
+                            onChange={(value) => setSelectedFyId(value)}
+                            options={[
+                                { value: 'period', label: t('analytics.filters.usePeriodFilters') },
+                                ...shopFinancialYears.map(fy => ({
+                                    value: fy.id,
+                                    label: `${fy.name} (${fy.status === 'open' ? t('common.status.open') : t('common.status.closed')})`
+                                }))
+                            ]}
+                        />
                     </div>
+                )}
+                <div className={`flex bg-background rounded-lg border border-gray-600 p-1 ${selectedFyId !== 'period' ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {(Object.entries({
+                        'month': t('analytics.periods.month'),
+                        'week': t('analytics.periods.week'),
+                        'today': t('analytics.periods.today'),
+                        'all': t('analytics.periods.all'),
+                        'custom': t('analytics.periods.custom')
+                    }) as [FilterType, string][]).map(([key, label]) => (
+                         <button key={key} onClick={() => setFilterType(key)} className={`px-4 py-1 rounded-md text-sm transition-colors ${filterType === key ? 'bg-primary' : 'hover:bg-gray-700'}`}>
+                            {label}
+                        </button>
+                    ))}
                 </div>
-                 {filterType === 'range' ? (
-                    <div className="flex gap-2 items-end">
-                        <div><label className="text-sm text-text-secondary block mb-1">{t('statements.dateLabels.from')}</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-4 focus:ring-primary focus:border-primary" style={{colorScheme: 'dark'}}/></div>
-                        <div><label className="text-sm text-text-secondary block mb-1">{t('statements.dateLabels.to')}</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-4 focus:ring-primary focus:border-primary" style={{colorScheme: 'dark'}}/></div>
+                {filterType === 'custom' && (
+                     <div className={`flex gap-2 items-end ${selectedFyId !== 'period' ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <div><label className="text-xs text-text-secondary block mb-1">{t('analytics.filters.from')}</label><input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-3 text-sm" style={{colorScheme: 'dark'}}/></div>
+                        <div><label className="text-xs text-text-secondary block mb-1">{t('analytics.filters.to')}</label><input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-3 text-sm" style={{colorScheme: 'dark'}}/></div>
                     </div>
-                 ) : (
-                    <div><label className="text-sm text-text-secondary block mb-1">{t('statements.dateLabels.selectDay')}</label><input type="date" value={singleDate} onChange={e => setSingleDate(e.target.value)} className="bg-background border border-gray-600 rounded-lg py-1.5 px-4 focus:ring-primary focus:border-primary" style={{colorScheme: 'dark'}}/></div>
-                 )}
+                )}
             </div>
 
             {!selectedAccountId ? (
@@ -296,7 +483,16 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                         {/* Desktop Table View */}
                         <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-right">
-                                <thead><tr className="border-b border-gray-700 text-text-secondary"><th className="p-3">{t('statements.table.columns.date')}</th><th className="p-3">{t('statements.table.columns.context')}</th><th className="p-3 text-left">{t('statements.table.columns.debit')}</th><th className="p-3 text-left">{t('statements.table.columns.credit')}</th><th className="p-3 text-left">{t('statements.table.columns.balance')}</th></tr></thead>
+                                <thead className="border-2 text-base font-semibold" style={{ backgroundColor: 'var(--color-surface-hover)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>
+                                    <tr>
+                                        <th className="p-3">{t('statements.table.columns.date')}</th>
+                                        <th className="p-3">{t('statements.table.columns.context')}</th>
+                                        <th className="p-3 text-left">{t('statements.table.columns.debit')}</th>
+                                        <th className="p-3 text-left">{t('statements.table.columns.credit')}</th>
+                                        <th className="p-3 text-left">{t('statements.table.columns.balance')}</th>
+                                        <th className="p-3 text-center sticky left-0 bg-surface-hover">{t('statements.table.columns.actions')}</th>
+                                    </tr>
+                                </thead>
                                 <tbody>
                                     {statementData.rows.map(row => (
                                         <tr key={row.id} className="border-b border-gray-700 hover:bg-background/50">
@@ -305,10 +501,28 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                                             <td className="p-3 text-left font-mono text-green-400">{row.debit > 0 ? formatCurrency(row.debit) : '-'}</td>
                                             <td className="p-3 text-left font-mono text-red-400">{row.credit > 0 ? formatCurrency(row.credit) : '-'}</td>
                                             <td className="p-3 text-left font-mono">{formatCurrency(row.balance)}</td>
+                                            <td className="p-3 sticky left-0 bg-surface">
+                                                <div className="flex justify-center gap-2">
+                                                    <button
+                                                        onClick={() => handleStartEdit(row.transaction)}
+                                                        className="text-blue-400 hover:text-blue-300 p-1.5 rounded hover:bg-background transition-colors"
+                                                        title={t('statements.actions.edit')}
+                                                    >
+                                                        <EditIcon />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteClick(row.transaction)}
+                                                        className="text-red-400 hover:text-red-300 p-1.5 rounded hover:bg-background transition-colors"
+                                                        title={t('statements.actions.delete')}
+                                                    >
+                                                        <DeleteIcon />
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))}
                                     {statementData.rows.length === 0 && (
-                                        <tr><td colSpan={5} className="text-center p-8 text-text-secondary">{t('statements.table.empty')}</td></tr>
+                                        <tr><td colSpan={6} className="text-center p-8 text-text-secondary">{t('statements.table.empty')}</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -342,9 +556,74 @@ const StatementPage: React.FC<StatementPageProps> = ({ accounts, transactions, a
                                                 <p className="font-mono text-accent font-bold">{formatCurrency(row.balance)}</p>
                                             </div>
                                         </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex justify-end gap-2 pt-2 border-t border-gray-700">
+                                            <button
+                                                onClick={() => handleStartEdit(row.transaction)}
+                                                className="flex items-center gap-1 text-blue-400 hover:text-blue-300 px-3 py-1.5 rounded hover:bg-surface transition-colors text-sm"
+                                            >
+                                                <EditIcon />
+                                                <span>{t('statements.actions.edit')}</span>
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteClick(row.transaction)}
+                                                className="flex items-center gap-1 text-red-400 hover:text-red-300 px-3 py-1.5 rounded hover:bg-surface transition-colors text-sm"
+                                            >
+                                                <DeleteIcon />
+                                                <span>{t('statements.actions.delete')}</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 ))
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Transaction Modal */}
+            <DailyEntryForm
+                isOpen={showEditModal}
+                onClose={handleCloseEditModal}
+                onAddTransaction={() => {}}
+                onUpdateTransaction={handleUpdateTransactionWithRefresh}
+                transactionToEdit={editingTransaction}
+                accounts={accounts}
+                openFinancialYear={openFinancialYear}
+                onAddAccount={onAddAccount}
+                selectedDate={selectedDate}
+                activeShopId={selectedShopId || activeShop?.id}
+                currentUserId={currentUser.id}
+            />
+
+            {/* Delete Confirmation Dialog */}
+            {deleteConfirmation.isOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-surface rounded-lg p-6 max-w-md w-full space-y-4">
+                        <h3 className="text-xl font-bold text-text-primary">{t('statements.deleteConfirmation.title')}</h3>
+                        <p className="text-text-secondary">
+                            {t('statements.deleteConfirmation.message')}
+                        </p>
+                        <p className="text-text-primary font-medium bg-background p-3 rounded">
+                            {deleteConfirmation.transactionDescription}
+                        </p>
+                        <p className="text-red-400 text-sm">
+                            {t('statements.deleteConfirmation.warning')}
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={cancelDelete}
+                                className="px-4 py-2 rounded-lg bg-background hover:bg-surface-hover text-text-primary transition-colors"
+                            >
+                                {t('statements.deleteConfirmation.cancel')}
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
+                            >
+                                {t('statements.deleteConfirmation.confirm')}
+                            </button>
                         </div>
                     </div>
                 </div>
